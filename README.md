@@ -2,7 +2,18 @@
 
 Unified offline dashboard for Uma Musume: breeding optimizer + Team Trials analysis.
 
-> **Early version** — Heaven merges two previously separate tools ([Heir](https://github.com/Nighty3333/heir) for breeding and TTAnalyzer for Team Trials) into a single app. Some rough edges are expected. Report bugs or suggestions in the Discord thread.
+> **Early version** — Heaven merges two previously separate tools ([Heir](https://github.com/Nighty3333/heir) for breeding and TTAnalyzer for Team Trials) into a single app. The breeding side (Inventory, Affinity, Breed) is still being polished after the merge — expect rough edges. The Team Trials side (Overview, Skill Planner, Skill Lookup, Track & Condition) is the most mature and battle-tested part right now. Report bugs or suggestions in the Discord thread.
+
+### How does it work?
+
+**Nothing is injected into the game.** Heaven is a purely passive tool:
+
+| Feature | Method | Injects into game? |
+|---------|--------|:------------------:|
+| **Inventory / Affinity / Breed** | Reads your account data via the game's own API (same request your client makes on login) | No |
+| **Team Trials / Skill Planner / Skill Lookup / Track & Condition** | Captures network traffic through a local HTTPS proxy (mitmproxy) — it just reads packets, never modifies them | No |
+
+Heaven **never sends packets to the game server**, never modifies game memory, and never injects code. It only reads data that your game client is already sending and receiving.
 
 ---
 
