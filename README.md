@@ -95,7 +95,13 @@ The certificate file is at:
 C:\Users\<YOUR_USERNAME>\.mitmproxy\mitmproxy-ca-cert.cer
 ```
 
-Install it:
+**Option A: One-liner (PowerShell as Admin)**
+
+```powershell
+Import-Certificate -FilePath "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+**Option B: GUI**
 
 1. Double-click the `.cer` file
 2. Click **Install Certificate...**
@@ -104,7 +110,11 @@ Install it:
 5. Click **Browse** and pick **Trusted Root Certification Authorities**
 6. Click OK > Next > Finish
 
-To verify: open `certmgr.msc` (Win+R > type it), go to Trusted Root Certification Authorities > Certificates, and look for **mitmproxy** in the list.
+**Verify** (either way): run this in PowerShell:
+```powershell
+Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "mitmproxy" }
+```
+If it returns a row with `O=mitmproxy, CN=mitmproxy`, you're good.
 
 ### Step 3: Capture your matches
 
@@ -122,10 +132,24 @@ The proxy auto-detects your `udid` from game request headers on first capture. I
 | Problem | Solution |
 |---------|----------|
 | SSL errors or `SEC_ERROR` in the game | Certificate not installed correctly. Redo Step 2 — make sure you select **Local Machine** and the **Trusted Root** store, not Current User |
+| `mitmdump exited immediately` | Something is already using port 8080, or the certificate isn't installed. Try: `mitmdump --listen-port 8080` in a terminal to see the real error |
 | Capture is running but no data appears | Game traffic isn't going through the proxy. Check Windows Settings > Proxy and make sure it's set to `127.0.0.1:8080` |
+| "Stop & Process" says 0 trials added | The data might already be processed. Run `python tt_analyze.py` manually from the Heaven folder to see the full output |
 | Game can't connect to servers | Stop capture first, verify your internet works without the proxy, then try again |
 | `udid` not auto-detected | Save your udid manually to `data/udid.txt` (one line, 32 hex characters) |
-| Internet proxy stuck after a crash | Go to Windows Settings > Network & Internet > Proxy > Manual proxy setup > turn it **OFF**. Heaven restores it automatically on normal exit, but a hard crash can leave it on |
+| Internet stuck / no connection after using Heaven | The system proxy got stuck. Fix it immediately: **Windows Settings > Network & Internet > Proxy > Manual proxy setup > turn it OFF**. Or run in PowerShell: `Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" ProxyEnable 0`. Heaven restores it automatically on normal exit, but a hard crash or force-closing the window can leave it on |
+| DNS errors (`getaddrinfo failed`) | Your DNS might not resolve game servers. Change DNS to Google: Windows Settings > Network > your adapter > DNS > set `8.8.8.8` and `8.8.4.4` |
+
+### Quick test: is the proxy working?
+
+If you're not sure whether the proxy is capturing anything, run mitmdump manually:
+
+```bash
+cd Heaven
+mitmdump -s discover_addon.py --listen-port 8080 --set block_global=false
+```
+
+Then open the game. You should see lines like `team_stadium/start`, `team_stadium/all_race_end`, etc. scrolling in the terminal as you play. If you see those, the proxy works — press Ctrl+C and use the dashboard's Start Capture button instead.
 
 ---
 
