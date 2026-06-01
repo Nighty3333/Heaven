@@ -8,6 +8,7 @@ leave the machine stuck behind a dead proxy.
 from __future__ import annotations
 
 import atexit
+import os
 import subprocess
 import sys
 import time
@@ -122,13 +123,18 @@ def start() -> dict:
     flags = 0
     if sys.platform.startswith("win"):
         flags = subprocess.CREATE_NO_WINDOW
+    _err_path = BASE / "data" / "mitmdump_stderr.log"
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
     try:
+        _err_file = open(_err_path, "w", encoding="utf-8")
         _proc = subprocess.Popen(
             [mitm, "-s", str(ADDON), "--listen-port", str(PROXY_PORT),
              "--set", "block_global=false"],
             cwd=str(BASE),
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=_err_file,
             creationflags=flags,
+            env=env,
         )
     except Exception as e:
         _restore_proxy()
@@ -137,7 +143,13 @@ def start() -> dict:
     time.sleep(1.2)
     if not is_capturing():
         _restore_proxy()
-        return {"ok": False, "error": "mitmdump exited immediately — check cert/install"}
+        err_tail = ""
+        try:
+            _err_file.close()
+            err_tail = _err_path.read_text(encoding="utf-8", errors="replace").strip()[-500:]
+        except Exception:
+            pass
+        return {"ok": False, "error": f"mitmdump exited immediately:\n{err_tail}" if err_tail else "mitmdump exited immediately — check cert/install"}
     return {"ok": True, "status": "started", **status()}
 
 

@@ -158,15 +158,15 @@ def load(loader):
     if _udid:
         logging.info(f"[capture] udid loaded ({_udid[:8]}...) from disk")
     else:
-        logging.error("=" * 60)
-        logging.error("[capture] NO UDID CONFIGURED")
-        logging.error("=" * 60)
-        logging.error("Without a udid the addon cannot decrypt the game's responses.")
-        logging.error("Auto-detection from request headers is best-effort and usually fails.")
-        logging.error("")
-        logging.error("Put your udid in data/udid.txt (one line, 32 hex chars).")
-        logging.error("See README section 'About the udid' for how to get it.")
-        logging.error("=" * 60)
+        logging.warning("=" * 60)
+        logging.warning("[capture] NO UDID CONFIGURED")
+        logging.warning("=" * 60)
+        logging.warning("Without a udid the addon cannot decrypt the game's responses.")
+        logging.warning("Auto-detection from request headers is best-effort and usually fails.")
+        logging.warning("")
+        logging.warning("Put your udid in data/udid.txt (one line, 32 hex chars).")
+        logging.warning("See README section 'About the udid' for how to get it.")
+        logging.warning("=" * 60)
     logging.info(f"[capture] logs -> {LOG_PATH}  +  {FULL_LOG_PATH}")
 
 
