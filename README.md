@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 Opens automatically at **http://127.0.0.1:1620**
 
-Character portraits download from gametora on first load and are cached locally.
+Character portraits are bundled in the repo. Missing ones download from gametora on first access and are cached locally.
 
 ---
 
@@ -51,11 +51,18 @@ Browse your full character factor inventory. Each card shows its factor stars, i
 
 ### Affinity Calculator
 
-Pick two parents and instantly see their affinity score with a detailed breakdown of every bonus: shared races, fans, scenario links, and relation bonuses. The formula matches the game's exact calculation.
+Pick two parents and instantly see their affinity score with a detailed breakdown of every bonus: chara relation, win saddle bonus (WSB), and cross-compatibility. The formula matches the game's exact calculation (confirmed against 100+ real trials by BourBon_Polaris).
 
 ### Breed Optimizer
 
-Select a target build (running style + distance), pick your "want" skills, and the optimizer finds the best parent combinations from your inventory. It scores every possible pair by affinity + skill overlap and ranks them. Use "Prepare For" to auto-select skills that match a style (e.g. Front Runner skills for Front Runner builds).
+Select a target build (running style + distance), pick your "want" skills, and the optimizer finds the best parent combinations from your inventory. Uses the **expected proc model**: instead of arbitrary weights, it computes the real probability of each spark proccing across all 6 tree entities (parents + 4 grandparents), each with their own individual affinity. Blue stat procs (70/80/90% base) are included in scoring too.
+
+**Pair detail view** shows:
+- **Lineage tree** — visual family tree with portraits, individual affinity badges, and top sparks per entity
+- **Spark proc odds** — P(>=1 proc) for every spark over a full run (2 inheritance events), with per-source breakdown: click any spark to see which tree entity contributes it, with what stars, affinity, and the formula `base% x (1 + affinity/100)`
+- **Inherited factors** — combined factor list from both parents
+
+Use "Prepare For" (style + distance) to auto-select skills. If TTAnalyzer data is available, skills are weighted by real activation rates.
 
 ### Team Trials Overview
 
