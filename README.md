@@ -1,19 +1,13 @@
 # Heaven
 
-Unified offline dashboard for Uma Musume: breeding optimizer + Team Trials analysis.
+Offline dashboard for Uma Musume: breeding optimizer + Team Trials analysis.
 
-> **Early version** — Heaven merges two previously separate tools ([Heir](https://github.com/Nighty3333/heir) for breeding and TTAnalyzer for Team Trials) into a single app. The breeding side (Inventory, Affinity, Breed) is still being polished after the merge — expect rough edges. The Team Trials side (Overview, Skill Planner, Skill Lookup, Track & Condition) is the most mature and battle-tested part right now. Report bugs or suggestions in the Discord thread.
+> **Nothing is injected into the game.** Heaven is a purely passive tool that reads data your game client already sends and receives. It never sends packets to the game server, never modifies game memory, and never injects code.
 
-### How does it work?
-
-**Nothing is injected into the game.** Heaven is a purely passive tool:
-
-| Feature | Method | Injects into game? |
-|---------|--------|:------------------:|
-| **Inventory / Affinity / Breed** | Reads your account data via the game's own API (same request your client makes on login) | No |
-| **Team Trials / Skill Planner / Skill Lookup / Track & Condition** | Captures network traffic through a local HTTPS proxy (mitmproxy) — it just reads packets, never modifies them | No |
-
-Heaven **never sends packets to the game server**, never modifies game memory, and never injects code. It only reads data that your game client is already sending and receiving.
+| Feature | Method |
+|---------|--------|
+| **Inventory / Breed** | Reads your account data via the game's own API (same request your client makes on login) |
+| **Team Trials** | Captures network traffic through a local HTTPS proxy (mitmproxy) — reads packets, never modifies them |
 
 ---
 
@@ -23,23 +17,16 @@ Heaven **never sends packets to the game server**, never modifies game memory, a
 - **Windows** (proxy capture uses the Windows registry)
 - **DMM version** of Uma Musume
 
-## Installation
+## Quick Start
 
 ```bash
 git clone https://github.com/Nighty3333/Heaven.git
 cd Heaven
 pip install -r requirements.txt
-```
-
-## Running
-
-```bash
 .\start.bat
 ```
 
-Opens automatically at **http://127.0.0.1:1620**
-
-Character portraits are bundled in the repo. Missing ones download from gametora on first access and are cached locally.
+Opens at **http://127.0.0.1:1620**
 
 ---
 
@@ -47,22 +34,42 @@ Character portraits are bundled in the repo. Missing ones download from gametora
 
 ### Inventory
 
-Browse your full character factor inventory. Each card shows its factor stars, inherited skills, and scenario bonuses. Use the search bar to filter by name. Click any card to see the full factor breakdown.
+Browse your full character factor inventory. Cards show the complete factor breakdown (blue stats, pink aptitudes, green uniques, white skills/races) with star counts, proc percentages, and your own contribution highlighted.
+
+- **Filter** by name, note, tag, or owner
+- **Source toggle** (All / Yours / Friends) to focus on your umas or borrowed ones — friend cards are visually marked with a green border
+- **Sort** by Affinity, G1 Wins, White Count, Score, or Newest
+- **Target picker** — select any uma as breeding target to see exact individual affinity scores on every card
+- **Inheritance Factor filters** (uma.moe style) — filter by blue/pink/green/white factors with star ranges, collapsible panel
+- **White skill truncation** — cards show the top 8 white skills by default with a "+N more" toggle to expand, keeping the list scannable
+- **Progressive loading** — loads 25 cards at a time with a "Show more" button for smooth scrolling
+- **Quick actions** — assign any uma as Parent 1 or Parent 2 directly from the card, view its race history, or filter to all copies
 
 ### Breed Optimizer
 
-Select a target build (running style + distance), pick your "want" skills, and the optimizer finds the best parent combinations from your inventory. Uses the **expected proc model**: instead of arbitrary weights, it computes the real probability of each spark proccing across all 6 tree entities (parents + 4 grandparents), each with their own individual affinity. Blue stat procs (70/80/90% base) are included in scoring too.
+Select a target build (running style + distance), pick your "want" skills, and the optimizer finds the best parent combinations from your inventory.
+
+Uses the **expected proc model**: instead of arbitrary weights, it computes the real probability of each spark proccing across all 6 tree entities (parents + 4 grandparents), each with their own individual affinity calculated from the exact in-game formula (character relation + winning saddle bonus + relation level).
 
 **Pair detail view** shows:
 - **Lineage tree** — visual family tree with portraits, individual affinity badges, and top sparks per entity
-- **Spark proc odds** — P(>=1 proc) for every spark over a full run (2 inheritance events), with per-source breakdown: click any spark to see which tree entity contributes it, with what stars, affinity, and the formula `base% x (1 + affinity/100)`
+- **Spark proc odds** — P(>=1 proc) for every spark over a full run (2 inheritance events), with expandable per-source breakdown: click any spark to see which tree entity contributes it, at what stars, with what affinity, and the formula `base% x (1 + affinity/100)`
 - **Inherited factors** — combined factor list from both parents
+
+**Breeding tray** — a persistent bottom bar that lets you assign parents while browsing the inventory. Pick Parent 1 and Parent 2 from any card, select a target from the visual character picker, and hit "Show pair" without switching tabs.
 
 Use "Prepare For" (style + distance) to auto-select skills. If TTAnalyzer data is available, skills are weighted by real activation rates.
 
+Character portraits are bundled in the repo. Missing ones download from gametora on first access and are cached locally.
+
 ### Team Trials Overview
 
-After capturing match data (see setup below), this tab shows every Team Trials match you've played: your team vs the opponent, per-race results, skill activations, and win/loss verdicts. Click any match to expand the full race-by-race breakdown with position graphs and skill timelines.
+After capturing match data, this tab shows every Team Trials match you've played: your team vs the opponent, per-race results, skill activations, and win/loss verdicts.
+
+**Race Analysis** uses compact summary rows instead of a wide table:
+- Each uma shows AVG score, CV% (consistency), BEST, WORST, ACT% (skill activation), a sparkline trend chart, and a verdict pill (GOAT / STRONG / SOLID / WEAK / BENCH)
+- Click any row to expand: score history heatmap (colored cells), trimmed average, gap to top, standard deviation, skill activation %, and a full skill breakdown button
+- Sortable by any column
 
 ### Skill Planner
 
@@ -70,41 +77,85 @@ Plan your skill build for a specific distance + running style combo. Shows activ
 
 ### Skill Lookup
 
-Search any skill by name or effect. Shows the skill's description, activation conditions, and which characters learn it. Useful for quickly checking what a skill does during breeding or team building.
+Search any skill by name or effect. Shows the skill's description, activation conditions, and which characters learn it.
 
-### Track & Condition (Stadium)
+### Track & Condition
 
-Track stadium conditions, course modifiers, and weather across your captured matches. Also houses the **capture controls** — start/stop the proxy from here without touching a terminal.
+Track stadium conditions, course modifiers, and weather across your captured matches. Shows top tracks, starting gate distribution, ground/surface/weather/season breakdowns, and a full rounds table.
+
+Also houses the **capture controls** — start/stop the proxy from here without touching a terminal.
 
 ---
 
-## Team Trials Capture Setup
+## Installation
 
-The Team Trials features need live data captured from the game. This is a **one-time setup** — once configured, you just click Start/Stop in the dashboard.
+### Step 1: Clone and install
 
-### Step 1: Generate the mitmproxy certificate
+```bash
+git clone https://github.com/Nighty3333/Heaven.git
+cd Heaven
+pip install -r requirements.txt
+```
+
+### Step 2: Import your umas
+
+Run Heaven:
+
+```bash
+.\start.bat
+```
+
+Open **http://127.0.0.1:1620** in your browser. A setup dialog appears with two options:
+
+#### Option A: Memory dump (recommended)
+
+The simplest method. No Steam credentials needed.
+
+1. Open Umamusume and go to **Enhance > List** (the Veteran List screen)
+2. Run [UmaExtractor](https://github.com/xancia/UmaExtractor) — it produces a `data.json` file
+3. In Heaven's setup dialog, click **Import data.json** and pick the file
+
+> **Note:** UmaExtractor only reads your own umas. Friends' borrowable parents won't be available with this method.
+
+#### Option B: Frida + Steam (advanced)
+
+Captures credentials via Frida and uses the game's API directly. Includes friends' borrowable parents.
+
+1. Click **Open game & capture** — Heaven launches the game and captures the auth key via Frida
+2. Enter your Steam username and password when prompted
+3. If you have Steam Guard enabled, enter the 2FA code
+4. Heaven fetches your full inventory + friends' borrowable parents
+
+Steam credentials are stored locally, encrypted via Windows DPAPI (bound to your Windows user — same scheme Chrome uses for saved passwords). They never leave your machine.
+
+### Step 3: Team Trials setup (optional)
+
+The Team Trials features need live match data captured through mitmproxy. This is a **one-time setup**.
+
+#### 3a. Install mitmproxy and generate its certificate
 
 ```bash
 pip install mitmproxy
 mitmdump
 ```
 
-Run `mitmdump` once and **close it immediately** with Ctrl+C. This generates the certificate files. You only need to do this once.
+Run `mitmdump` once and close it immediately with `Ctrl+C`. This generates the CA certificate. You only need to do this once.
 
-### Step 2: Install the certificate
+#### 3b. Install the certificate
 
 The certificate file is at:
+
 ```
 C:\Users\<YOUR_USERNAME>\.mitmproxy\mitmproxy-ca-cert.cer
 ```
 
-**Option A: One-liner (PowerShell as Admin)**
+**PowerShell (as Admin) — one-liner:**
 
 ```powershell
 Import-Certificate -FilePath "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
-**Option B: GUI**
+**Or via GUI:**
 
 1. Double-click the `.cer` file
 2. Click **Install Certificate...**
@@ -113,46 +164,47 @@ Import-Certificate -FilePath "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer"
 5. Click **Browse** and pick **Trusted Root Certification Authorities**
 6. Click OK > Next > Finish
 
-**Verify** (either way): run this in PowerShell:
+**Verify** the installation:
+
 ```powershell
-Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "mitmproxy" }
+Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "*mitmproxy*" }
 ```
+
 If it returns a row with `O=mitmproxy, CN=mitmproxy`, you're good.
 
-### Step 3: Capture your matches
+#### 3c. Capture your matches
 
-1. Open Heaven at http://127.0.0.1:1620
+1. Open Heaven at **http://127.0.0.1:1620**
 2. Go to the **Track & Condition** tab
 3. Click **Start Capture** — this starts the proxy and sets your Windows proxy automatically
 4. Play Team Trials matches normally in DMM
 5. Click **Stop Capture** when done — the proxy stops and your Windows proxy is restored
 6. Switch to the **Team Trials** tab to see your results
 
-The proxy auto-detects your `udid` from game request headers on first capture. If auto-detection fails, find your udid manually (it's a 32-character hex string in the request headers) and save it to `data/udid.txt`.
+The proxy auto-detects your `udid` from game request headers on first capture. If auto-detection fails, save your udid manually to `data/udid.txt` (one line, 32 hex characters).
 
-### Step 4: If something goes wrong
+---
+
+## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| SSL errors or `SEC_ERROR` in the game | Certificate not installed correctly. Redo Step 2 — make sure you select **Local Machine** and the **Trusted Root** store, not Current User |
-| `mitmdump exited immediately` | Something is already using port 8080, or the certificate isn't installed. Try: `mitmdump --listen-port 8080` in a terminal to see the real error |
-| Capture is running but no data appears | Game traffic isn't going through the proxy. Check Windows Settings > Proxy and make sure it's set to `127.0.0.1:8080` |
-| "Stop & Process" says 0 trials added | The data might already be processed. Run `python tt_analyze.py` manually from the Heaven folder to see the full output |
+| SSL errors or `SEC_ERROR` in the game | Certificate not installed correctly. Redo step 3b — make sure you select **Local Machine** and the **Trusted Root** store, not Current User |
+| `mitmdump exited immediately` | Something is already using port 8080, or the certificate isn't installed. Try `mitmdump --listen-port 8080` in a terminal to see the real error |
+| Capture running but no data appears | Game traffic isn't going through the proxy. Check Windows Settings > Proxy — it should be set to `127.0.0.1:8080` |
+| 0 trials added after processing | Data might already be processed. Run `python tt_analyze.py` manually to see full output |
 | Game can't connect to servers | Stop capture first, verify your internet works without the proxy, then try again |
 | `udid` not auto-detected | Save your udid manually to `data/udid.txt` (one line, 32 hex characters) |
-| Internet stuck / no connection after using Heaven | The system proxy got stuck. Fix it immediately: **Windows Settings > Network & Internet > Proxy > Manual proxy setup > turn it OFF**. Or run in PowerShell: `Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" ProxyEnable 0`. Heaven restores it automatically on normal exit, but a hard crash or force-closing the window can leave it on |
-| DNS errors (`getaddrinfo failed`) | Your DNS might not resolve game servers. Change DNS to Google: Windows Settings > Network > your adapter > DNS > set `8.8.8.8` and `8.8.4.4` |
+| Internet stuck after using Heaven | The system proxy got stuck. Fix: **Windows Settings > Network & Internet > Proxy > Manual proxy setup > turn it OFF**. Or run: `Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" ProxyEnable 0`. Heaven restores it automatically on normal exit, but a crash can leave it on |
+| DNS errors (`getaddrinfo failed`) | Change DNS to Google: Windows Settings > Network > your adapter > DNS > set `8.8.8.8` and `8.8.4.4` |
 
-### Quick test: is the proxy working?
-
-If you're not sure whether the proxy is capturing anything, run mitmdump manually:
+**Quick proxy test:** not sure if capture is working? Run mitmdump manually:
 
 ```bash
-cd Heaven
 mitmdump -s discover_addon.py --listen-port 8080 --set block_global=false
 ```
 
-Then open the game. You should see lines like `team_stadium/start`, `team_stadium/all_race_end`, etc. scrolling in the terminal as you play. If you see those, the proxy works — press Ctrl+C and use the dashboard's Start Capture button instead.
+Then open the game. You should see lines like `team_stadium/start`, `team_stadium/all_race_end` scrolling in the terminal. If you see those, the proxy works — close it and use the dashboard's Start Capture button instead.
 
 ---
 
