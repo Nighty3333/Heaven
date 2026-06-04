@@ -57,7 +57,8 @@
   .inv-table thead th{position:sticky;top:0;z-index:4;background:var(--panel);color:var(--mut);font-size:9.5px;font-weight:700;
     text-transform:uppercase;letter-spacing:.08em;padding:10px 10px 8px;border-bottom:2px solid var(--line);white-space:nowrap;text-align:left;user-select:none}
   .inv-table thead th.col-num{text-align:right}
-  .inv-table thead th.col-bar{text-align:center}
+  .inv-table thead th.col-bar{text-align:left}
+  .inv-table td.col-bar{vertical-align:middle;padding:4px 6px}
   .ucard{display:table-row;transition:background .15s,box-shadow .15s;cursor:pointer}
   .ucard>td{padding:8px 10px;border-bottom:1px solid rgba(37,40,48,0.6);vertical-align:middle;transition:background .15s}
   .ucard:hover>td{background:rgba(90,159,212,0.04)}
@@ -76,10 +77,16 @@
   .uc-num-label{font-size:8.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;display:none}
   .c-aff{color:#ff5d8f} .c-g1{color:#5fd07a} .c-wh{color:#e0a94a} .c-sc{color:#5aa8ff} .c-target{color:#a98bff}
   /* Factor distribution bar */
-  .factor-bar{display:flex;width:120px;height:6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,0.04);flex-shrink:0}
-  .factor-bar-seg{height:100%;min-width:1px;transition:width .3s ease}
-  .fb-blue{background:var(--blue)} .fb-pink{background:var(--pink)} .fb-green{background:var(--green)} .fb-white{background:var(--white)}
-  .factor-bar-wrap{position:relative;display:flex;align-items:center;gap:6px}
+  /* Inline factor chips */
+  .fc-inline{display:flex;gap:2px;flex-wrap:wrap;line-height:1}
+  .fc-inline:first-child{margin-bottom:2px}
+  .fc-chip{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+  .fc-blue{background:rgba(90,173,255,0.12);color:var(--blue)}
+  .fc-pink{background:rgba(255,122,192,0.12);color:var(--pink)}
+  .fc-green{background:rgba(139,212,80,0.12);color:var(--green)}
+  .fc-chip.fc-hi{font-weight:800;border:1px solid rgba(255,255,255,0.1)}
+  .fc-chip.fc-mid{opacity:0.85}
+  .fc-chip.fc-lo{opacity:0.5}
   .factor-bar-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
     background:#1a1c22;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:10px;white-space:nowrap;z-index:10;
     box-shadow:0 4px 16px rgba(0,0,0,0.5);pointer-events:none}
@@ -1247,18 +1254,30 @@ function matchUma(u){
 // ---- analytical dashboard: factor bar + full pill grid ----
 const WHITE_TRUNCATE_LIMIT = 8;
 function factorBar(u){
+  // Blue stats as mini chips (e.g. "Wit6 Pow3 Spd1")
   const agg=u.agg||[];
-  const counts={blue:0,pink:0,green:0,white:0};
-  agg.forEach(a=>{const t=_displayType(a.type); if(counts[t]!=null) counts[t]+=(a.total||0);});
-  const total=counts.blue+counts.pink+counts.green+counts.white;
-  if(!total) return '<div class="factor-bar"></div>';
-  const pct=t=>((counts[t]/total)*100).toFixed(1);
-  return `<div class="factor-bar-wrap"><div class="factor-bar">
-    ${counts.blue?`<div class="factor-bar-seg fb-blue" style="width:${pct('blue')}%"></div>`:''}
-    ${counts.pink?`<div class="factor-bar-seg fb-pink" style="width:${pct('pink')}%"></div>`:''}
-    ${counts.green?`<div class="factor-bar-seg fb-green" style="width:${pct('green')}%"></div>`:''}
-    ${counts.white?`<div class="factor-bar-seg fb-white" style="width:${pct('white')}%"></div>`:''}
-  </div><div class="factor-bar-tip"><span style="color:var(--blue)">B:${counts.blue}</span> <span style="color:var(--pink)">P:${counts.pink}</span> <span style="color:var(--green)">G:${counts.green}</span> <span style="color:var(--white)">W:${counts.white}</span></div></div>`;
+  const blues=agg.filter(a=>a.type==='blue').sort((a,b)=>b.total-a.total);
+  const pinks=agg.filter(a=>a.type==='pink').sort((a,b)=>b.total-a.total);
+  const greens=agg.filter(a=>a.type==='green').sort((a,b)=>b.total-a.total);
+  // Abbreviate stat names
+  const STAT_SHORT={Speed:'Spd',Stamina:'Sta',Power:'Pow',Guts:'Gut',Wit:'Wit'};
+  const PINK_SHORT={'Late Surger':'Late','Front Runner':'Front','Pace Chaser':'Pace','End Closer':'Close',
+    Turf:'Turf',Dirt:'Dirt',Short:'Sprint',Mile:'Mile',Medium:'Mid',Long:'Long'};
+  const blueHtml=blues.map(a=>{
+    const nm=STAT_SHORT[a.name]||a.name.substring(0,3);
+    const cls=a.total>=6?'fc-hi':a.total>=3?'fc-mid':'fc-lo';
+    return `<span class="fc-chip fc-blue ${cls}" title="${a.name} ${a.total}★">${nm}${a.total}</span>`;
+  }).join('');
+  const pinkHtml=pinks.map(a=>{
+    const nm=PINK_SHORT[a.name]||a.name.substring(0,4);
+    const cls=a.total>=6?'fc-hi':a.total>=3?'fc-mid':'fc-lo';
+    return `<span class="fc-chip fc-pink ${cls}" title="${a.name} ${a.total}★">${nm}${a.total}</span>`;
+  }).join('');
+  const greenHtml=greens.slice(0,2).map(a=>{
+    const nm=a.name.substring(0,6);
+    return `<span class="fc-chip fc-green" title="${a.name} ${a.total}★">${nm}${a.total}</span>`;
+  }).join('');
+  return `<div class="fc-inline">${blueHtml}</div><div class="fc-inline">${pinkHtml}${greenHtml}</div>`;
 }
 function factorGrid(u){
   const agg=u.agg||[];
@@ -1560,7 +1579,7 @@ function renderInv(){
   const affLabel = TARGET_CARD ? 'AFF' : 'LIN';
   const tableHead = `<table class="inv-table"><thead><tr>
     <th style="min-width:180px">Uma</th>
-    <th class="col-bar" style="width:140px">Factors</th>
+    <th class="col-bar" style="width:220px">Stats / Aptitude</th>
     <th class="col-num" style="width:60px">${affLabel}</th>
     <th class="col-num" style="width:44px">G1</th>
     <th class="col-num" style="width:52px">WHT</th>
