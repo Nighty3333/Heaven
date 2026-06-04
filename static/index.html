@@ -848,6 +848,7 @@
       </div>
       <select id="sortBy" class="ghost" title="sort" style="font-size:11px;padding:5px 8px">
         <option value="affinity">Affinity</option>
+        <option value="build">Build Fit</option>
         <option value="g1">G1 Wins</option>
         <option value="white">White Count</option>
         <option value="score">Score</option>
@@ -855,11 +856,22 @@
       </select>
       <span class="muted" id="invCount" style="font-size:10px;white-space:nowrap;font-variant-numeric:tabular-nums"></span>
     </div>
-    <div class="target-pick-row" style="margin-top:6px">
-      <label class="muted" style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em">TARGET</label>
-      <div class="target-pick-btn" id="invTargetBtn">
+    <div class="row" style="gap:8px;align-items:center;margin-top:6px">
+      <label class="muted" style="font-weight:700;color:var(--accent);white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em">BUILD</label>
+      <select id="invStyle" class="ghost" style="font-size:11px;padding:5px 8px;min-width:100px">
+        <option value="">Style...</option>
+        <option>Front Runner</option><option>Pace Chaser</option><option>Late Surger</option><option>End Closer</option>
+      </select>
+      <select id="invDistance" class="ghost" style="font-size:11px;padding:5px 8px;min-width:80px">
+        <option value="">Distance...</option>
+        <option>Sprint</option><option>Mile</option><option>Medium</option><option>Long</option><option>Dirt</option>
+      </select>
+      <span class="muted" id="invBuildMsg" style="font-size:10px"></span>
+      <span style="color:var(--line);margin:0 4px">│</span>
+      <label class="muted" style="font-weight:700;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.06em">TARGET</label>
+      <div class="target-pick-btn" id="invTargetBtn" style="min-width:120px;max-width:200px">
         <img class="tp-portrait hide" id="invTargetPortrait" src="" alt="">
-        <span class="tp-name" id="invTargetName">Pick a target uma to score parent affinity...</span>
+        <span class="tp-name" id="invTargetName" style="font-size:11px">pick target...</span>
         <span class="tp-arrow">▾</span>
       </div>
       <button id="invTargetClear" type="button" class="ghost hide" style="font-size:10px;padding:4px 10px">Clear</button>
@@ -1357,7 +1369,7 @@ function umaCard(u){
       <div style="min-width:0"><div class="uname">${ownerBadge}${esc(u.name)} ${mb}</div><div class="uc-owner">${ownerTxt}</div></div>
     </div></td>
     <td class="col-bar">${factorBar(u)}</td>
-    <td class="uc-num" title="${esc(affTip)}"><span class="c-aff" style="font-size:15px">${affVal}</span></td>
+    <td class="uc-num" title="${esc(affTip)}"><span class="c-aff" style="font-size:15px">${affVal}</span>${u._buildFit?`<div style="font-size:8px;color:var(--ok);font-weight:700">${u._buildFit}</div>`:''}</td>
     <td class="uc-num"><span class="c-g1">${u.g1||0}</span></td>
     <td class="uc-num"><span class="c-wh">${u.white_count||0}</span></td>
     <td class="uc-num"><span class="c-sc">${(u.rank_score||0).toLocaleString()}</span></td>
@@ -1397,6 +1409,60 @@ function saveCardField(e){
   refreshTagSelects();
 }
 const LIST_LIMIT=25;
+
+// ---- Build fit scoring ----
+// Maps running style to the pink aptitude factor name
+const BUILD_STYLE_FACTOR = {'Front Runner':'Front Runner','Pace Chaser':'Pace Chaser','Late Surger':'Late Surger','End Closer':'End Closer'};
+// Maps distance to the pink aptitude factor name
+const BUILD_DIST_FACTOR = {Sprint:'Short',Mile:'Mile',Medium:'Medium',Long:'Long',Dirt:'Dirt'};
+// Maps style to preferred blue stats (weighted)
+const BUILD_STAT_PREF = {
+  'Front Runner':{Speed:3,Power:2,Wit:1},
+  'Pace Chaser':{Speed:3,Power:2,Wit:2},
+  'Late Surger':{Power:3,Guts:2,Wit:1},
+  'End Closer':{Power:2,Guts:3,Wit:1},
+};
+// Keywords to match white skills for a style+distance combo
+const BUILD_SKILL_KW = {
+  'Front Runner':['front runner','escape','nige'],
+  'Pace Chaser':['pace chaser','pacer','senkou'],
+  'Late Surger':['late surger','sashi'],
+  'End Closer':['end closer','closer','oikomi'],
+  Sprint:['sprint','short'],Mile:['mile'],Medium:['medium','middle'],Long:['long','stayer'],Dirt:['dirt'],
+};
+function buildFitScore(u){
+  const style=$('#invStyle').value, dist=$('#invDistance').value;
+  if(!style&&!dist) return 0;
+  const agg=u.agg||[];
+  let score=0;
+  // Pink aptitude: style factor stars × 4
+  if(style){
+    const sf=agg.find(a=>a.type==='pink'&&a.name===BUILD_STYLE_FACTOR[style]);
+    score+=(sf?sf.total:0)*4;
+  }
+  // Pink aptitude: distance factor stars × 4
+  if(dist){
+    const df=agg.find(a=>a.type==='pink'&&a.name===BUILD_DIST_FACTOR[dist]);
+    score+=(df?df.total:0)*4;
+  }
+  // Blue stats: weighted by preference for this style
+  const prefs=style?BUILD_STAT_PREF[style]:{};
+  agg.filter(a=>a.type==='blue').forEach(a=>{
+    const w=prefs[a.name]||0.5;
+    score+=(a.total||0)*w;
+  });
+  // White skills matching style+distance keywords
+  const kws=[...(style?BUILD_SKILL_KW[style]:[]),...(dist?BUILD_SKILL_KW[dist]:[])];
+  if(kws.length){
+    const whites=agg.filter(a=>_displayType(a.type)==='white');
+    whites.forEach(a=>{
+      const nl=a.name.toLowerCase();
+      if(kws.some(k=>nl.includes(k))) score+=(a.total||0)*2;
+    });
+  }
+  return Math.round(score*10)/10;
+}
+
 let SRC_FILTER=''; // '' = all, 'mine' = yours only, 'friend' = friends only
 let TARGET_AFFINITY={}, TARGET_BREAKDOWN={}, TARGET_CARD=null, TARGET_EXCLUDED=new Set();
 let _targetCardId=null, _targetCardIdForPortrait=null, _targetWins=[];
@@ -1555,7 +1621,11 @@ function renderInv(){
   // newest, score, name), respect it.
   // Sort dropdown options (all descending). "white" uses white_count
   // (the badge number) with white_stars as tiebreaker.
-  const base=(a,b)=> sortBy==='g1'?(b.g1||0)-(a.g1||0)
+  // Compute build fit scores if build sort is active or build filters are set
+  const hasBuild = $('#invStyle').value || $('#invDistance').value;
+  if(hasBuild) rows.forEach(u=>{ u._buildFit = buildFitScore(u); });
+  const base=(a,b)=> sortBy==='build'?(hasBuild?(b._buildFit||0)-(a._buildFit||0):0)
+                  : sortBy==='g1'?(b.g1||0)-(a.g1||0)
                   : sortBy==='white'?((b.white_count||0)-(a.white_count||0)) || ((b.white_stars||0)-(a.white_stars||0))
                   : sortBy==='affinity'?affinityOf(b)-affinityOf(a)
                   : sortBy==='score'?(b.rank_score||0)-(a.rank_score||0)
@@ -2264,6 +2334,14 @@ $$('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
 $('#filter').addEventListener('input',renderInv);
 $('#minWhite').addEventListener('input',renderInv);
 $('#sortBy').addEventListener('change',renderInv);
+$('#invStyle').addEventListener('change',()=>{ if($('#invStyle').value||$('#invDistance').value){$('#sortBy').value='build';} renderInv(); _updateBuildMsg(); });
+$('#invDistance').addEventListener('change',()=>{ if($('#invStyle').value||$('#invDistance').value){$('#sortBy').value='build';} renderInv(); _updateBuildMsg(); });
+function _updateBuildMsg(){
+  const s=$('#invStyle').value, d=$('#invDistance').value;
+  const el=$('#invBuildMsg');
+  if(s||d){ el.textContent=`sorted by: ${[s,d].filter(Boolean).join(' + ')} fit`; el.style.color='var(--ok)'; }
+  else { el.textContent=''; }
+}
 $('#fcats').addEventListener('click',e=>{
   const add=e.target.closest('.addf');
   if(add){const k=add.dataset.k;FILTERS[k].push({name:'',min:1,max:CATS.find(c=>c.k===k).max});renderFcats();renderInv();updateFactorsCount();return;}
