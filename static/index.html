@@ -295,34 +295,30 @@
   .kofi-txt a{color:var(--accent);text-decoration:none} .kofi-txt a:hover{text-decoration:underline}
   .kofi-x{cursor:pointer;color:var(--mut);font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;transition:color .15s}
   .kofi-x:hover{color:var(--txt)}
-  /* ---- breed tab redesign ---- */
+  /* ---- breed tab ---- */
   .breed-top{padding:16px 18px !important}
-  .breed-header{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
-  .breed-label{font-size:13px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
-  .breed-grid{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+  .breed-header{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+  .breed-label{font-size:14px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+  .breed-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:12px}
   .breed-field{display:flex;flex-direction:column;gap:3px}
-  .breed-target-field{width:220px}
+  .breed-target-field{min-width:200px}
   .breed-fl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
   .breed-input{padding:7px 10px;font-size:13px}
-  .breed-num{width:72px;text-align:center;-moz-appearance:textfield}
-  .breed-num::-webkit-inner-spin-button,.breed-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-  .breed-go{padding:8px 20px !important;font-size:13px !important;align-self:end;
+  .breed-sel{font-size:12px;padding:6px 8px}
+  .breed-go{padding:8px 22px !important;font-size:13px !important;align-self:end;
             background:linear-gradient(135deg,var(--accent),#4a8fb5) !important;box-shadow:0 2px 8px rgba(90,159,212,0.3);white-space:nowrap}
   .breed-go:hover{box-shadow:0 4px 16px rgba(90,159,212,0.45) !important;transform:translateY(-1px)}
-  .breed-prep{padding:14px 18px !important}
-  .breed-prep-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
-  .breed-prep-label{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;
-                    padding:4px 10px;background:rgba(90,159,212,0.1);border-radius:4px;border:1px solid rgba(90,159,212,0.2)}
-  .breed-sel{font-size:12.5px;padding:6px 10px}
-  .breed-want-row{display:flex;gap:8px}
-  .breed-manual{padding:10px 18px !important;border-left:3px solid var(--accent);display:flex;align-items:center;gap:10px}
-  .breed-manual b{font-size:12px;white-space:nowrap}
-  .breed-manual .muted{font-size:11px}
-  .breed-results{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px}
+  .breed-want-row{display:flex;gap:8px;margin-top:8px}
+  .breed-adv{margin-top:8px;font-size:11px;color:var(--mut)}
+  .breed-adv summary{cursor:pointer;user-select:none;font-weight:600;color:var(--mut);font-size:11px}
+  .breed-adv summary:hover{color:var(--txt)}
+  .breed-adv-inner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 12px;
+                   background:var(--panel2);border-radius:6px;border:1px solid var(--line)}
+  .breed-results{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
   .breed-col{min-width:0}
-  .breed-col-header{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;
-                    padding:8px 12px;margin-bottom:8px;border-bottom:2px solid var(--accent);background:linear-gradient(to right,rgba(90,159,212,0.08),transparent)}
-  @media(max-width:900px){.breed-grid{grid-template-columns:1fr 1fr;} .breed-results{grid-template-columns:1fr}}
+  .breed-col-header{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;
+                    padding:6px 12px;margin-bottom:6px;border-bottom:2px solid var(--accent);background:linear-gradient(to right,rgba(90,159,212,0.08),transparent)}
+  @media(max-width:900px){.breed-row{flex-direction:column;align-items:stretch} .breed-results{grid-template-columns:1fr}}
   /* breed combo cards (results) */
   .combo{position:relative;overflow:hidden}
   .combo::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:0;transition:opacity .2s}
@@ -348,6 +344,28 @@
   .odds-ge2{font-size:8.5px;color:var(--mut);white-space:nowrap;min-width:44px;flex-shrink:0}
   @media(max-width:900px){.odds-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:600px){.odds-grid{grid-template-columns:repeat(2,1fr)}}
+  /* ---- lineage tree ---- */
+  .ltree{display:flex;flex-direction:column;align-items:center;gap:0;margin:12px 0 8px;position:relative}
+  .ltree-row{display:flex;justify-content:center;gap:0;width:100%;position:relative}
+  .ltree-node{display:flex;flex-direction:column;align-items:center;text-align:center;padding:6px 8px;position:relative;flex:1;max-width:200px}
+  .ltree-portrait{width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid var(--line);background:#080a0e;transition:border-color .2s}
+  .ltree-portrait.trainee{border-color:var(--accent);box-shadow:0 0 12px rgba(90,159,212,0.3)}
+  .ltree-portrait.p1{border-color:var(--accent)}
+  .ltree-portrait.p2{border-color:var(--pink)}
+  .ltree-portrait.gp{border-color:var(--line);width:44px;height:44px}
+  .ltree-name{font-size:10.5px;font-weight:700;margin-top:3px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ltree-aff{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-top:2px}
+  .ltree-aff-hi{background:rgba(90,159,212,0.15);color:var(--accent)}
+  .ltree-aff-mid{background:rgba(139,212,80,0.12);color:var(--green)}
+  .ltree-aff-lo{background:rgba(125,130,144,0.12);color:var(--mut)}
+  .ltree-sparks{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;margin-top:3px;max-width:160px}
+  .ltree-sp{font-size:8px;padding:1px 4px;border-radius:3px;font-weight:600;white-space:nowrap}
+  .ltree-sp-blue{background:#1c2840;color:var(--blue)}
+  .ltree-sp-pink{background:#2a1c30;color:var(--pink)}
+  .ltree-sp-green{background:#1c2a1c;color:var(--green)}
+  .ltree-sp-white{background:#2a2a20;color:var(--white)}
+  .ltree-lines{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .ltree-sep{width:100%;border:none;border-top:1px solid var(--line);margin:2px 0}
 
   /* ============================================================
      TEAM TRIALS ANALYZER STYLES (merged from TTAnalyzer dashboard)
@@ -774,10 +792,11 @@
   <!-- Target & weights -->
   <div class="card breed-top">
     <div class="breed-header">
-      <span class="breed-label">BREED OPTIMIZER</span>
-      <span class="muted" style="font-size:11px">Find the best parent pairs by expected proc chance</span>
+      <span class="breed-label">Breed Optimizer</span>
     </div>
-    <div class="breed-grid">
+
+    <!-- Row 1: Target + Style + Distance + Compute -->
+    <div class="breed-row">
       <div class="breed-field breed-target-field">
         <label class="breed-fl">Target</label>
         <div class="target-pick-btn" id="breedTargetBtn" style="padding:5px 10px">
@@ -788,58 +807,58 @@
         <input id="target" type="hidden">
         <datalist id="targetlist"></datalist>
       </div>
-      <!-- legacy weight fields removed: eproc model has affinity inside proc chances -->
       <div class="breed-field">
-        <label class="breed-fl">Parent pool</label>
-        <select id="poolTag" class="breed-input"><option value="">— all —</option></select>
+        <label class="breed-fl">Style</label>
+        <select id="breedStyle" class="breed-sel">
+          <option value="" disabled selected hidden>Style</option>
+          <option value="">All styles</option>
+          <option value="Front Runner">Front Runner</option>
+          <option value="Pace Chaser">Pace Chaser</option>
+          <option value="Late Surger">Late Surger</option>
+          <option value="End Closer">End Closer</option>
+        </select>
       </div>
-      <button id="run" class="breed-go">Compute breeding</button>
-    </div>
-  </div>
-
-  <!-- Prepare for + wanted skills -->
-  <div class="card breed-prep">
-    <div class="breed-prep-row">
-      <span class="breed-prep-label">PREPARE FOR</span>
-      <select id="breedStyle" class="breed-sel">
-        <option value="">— running style —</option>
-        <option value="Front Runner">Front Runner</option>
-        <option value="Pace Chaser">Pace Chaser</option>
-        <option value="Late Surger">Late Surger</option>
-        <option value="End Closer">End Closer</option>
-      </select>
-      <select id="breedDistance" class="breed-sel">
-        <option value="">— distance —</option>
-        <option value="Sprint">Sprint</option>
-        <option value="Mile">Mile</option>
-        <option value="Medium">Medium</option>
-        <option value="Long">Long</option>
-        <option value="Dirt">Dirt</option>
-      </select>
-      <button id="breedApplyStyle" type="button" class="ghost" title="Add matching white skills to the wanted list" style="font-size:11px;padding:5px 12px">Apply</button>
-      <span id="breedActStatus" style="font-size:10px;margin-left:6px"></span>
+      <div class="breed-field">
+        <label class="breed-fl">Distance</label>
+        <select id="breedDistance" class="breed-sel">
+          <option value="" disabled selected hidden>Distance</option>
+          <option value="">All distances</option>
+          <option value="Sprint">Sprint</option>
+          <option value="Mile">Mile</option>
+          <option value="Medium">Medium</option>
+          <option value="Long">Long</option>
+          <option value="Dirt">Dirt</option>
+        </select>
+      </div>
+      <button id="breedApplyStyle" type="button" class="ghost" title="Add matching white skills to the wanted list" style="font-size:11px;padding:6px 12px;align-self:end">Apply</button>
+      <span id="breedActStatus" style="font-size:10px"></span>
       <span class="muted" id="breedStyleMsg" style="font-size:11px"></span>
+      <button id="run" class="breed-go" style="margin-left:auto">Compute</button>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;margin:4px 0 2px;flex-wrap:wrap">
-      <label style="font-size:11px;color:var(--mut);display:flex;align-items:center;gap:4px;cursor:pointer">
-        <input type="checkbox" id="breedStrict"> Strict: hide skills below
-        <input id="breedStrictPct" type="number" value="60" min="0" max="100" style="width:44px;font-size:11px;padding:2px 4px;background:var(--card);border:1px solid var(--border);color:var(--fg);border-radius:4px" disabled>%
-      </label>
-      <button id="breedSyncTT" type="button" class="ghost" style="font-size:10px;padding:3px 8px;margin-left:auto" title="Fetch latest skill data from TTAnalyzer and save locally">Sync TTAnalyzer</button>
-      <span id="breedSyncMsg" style="font-size:10px;color:var(--mut)"></span>
-    </div>
+
+    <!-- Row 2: Wanted sparks -->
     <div class="breed-want-row">
-      <input id="wantIn" list="sparklist" placeholder="add wanted spark (stat / aptitude / skill) and press Enter" class="breed-input" style="flex:1;min-width:240px">
+      <input id="wantIn" list="sparklist" placeholder="add wanted spark and press Enter (e.g. Speed, Long Distance, Tail Held High...)" class="breed-input" style="flex:1">
       <datalist id="sparklist"></datalist>
     </div>
     <div id="wantChips" style="margin-top:6px"></div>
-    <p class="muted" style="font-size:10.5px;margin:6px 0 0">Wanted chips bias parents with matching white skills.</p>
-  </div>
 
-  <!-- Manual pairing tip -->
-  <div class="card breed-manual">
-    <b>Manual pairing</b>
-    <span class="muted">Use <b>Inventory</b> filters → <b>→ P1</b> / <b>→ P2</b> → <b>Show pair</b> in the tray.</span>
+    <!-- Advanced settings (collapsed) -->
+    <details class="breed-adv">
+      <summary>Advanced settings</summary>
+      <div class="breed-adv-inner">
+        <div class="breed-field">
+          <label class="breed-fl">Parent pool</label>
+          <select id="poolTag" class="breed-input" style="font-size:12px;padding:5px 8px"><option value="">— all —</option></select>
+        </div>
+        <label style="font-size:11px;color:var(--mut);display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="breedStrict"> Strict: hide skills below
+          <input id="breedStrictPct" type="number" value="60" min="0" max="100" style="width:44px;font-size:11px;padding:2px 4px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:4px" disabled>%
+        </label>
+        <button id="breedSyncTT" type="button" class="ghost" style="font-size:10px;padding:3px 8px" title="Fetch latest skill data from TTAnalyzer and save locally">Sync TTAnalyzer</button>
+        <span id="breedSyncMsg" style="font-size:10px;color:var(--mut)"></span>
+      </div>
+    </details>
   </div>
 
   <!-- Results -->
@@ -1799,6 +1818,58 @@ function sparkOddsGrid(odds, mode){
   }).join('');
 }
 
+function lineageTree(d){
+  const ia = d.individual_affinities || {};
+  const tc = d.target_card || 0;
+
+  function affBadge(val){
+    if(val==null) return '';
+    const cls = val>=60?'ltree-aff-hi':val>=30?'ltree-aff-mid':'ltree-aff-lo';
+    return `<div class="ltree-aff ${cls}">${val} aff</div>`;
+  }
+  function sparkChips(sparks, limit){
+    if(!sparks||!sparks.length) return '';
+    const top = sparks.slice(0).sort((a,b)=>b.stars-a.stars).slice(0, limit||6);
+    return top.map(s=>{
+      const cls = s.type==='blue'?'ltree-sp-blue':s.type==='pink'?'ltree-sp-pink':s.type==='green'?'ltree-sp-green':'ltree-sp-white';
+      return `<span class="ltree-sp ${cls}">${s.stars}★ ${esc(s.name)}</span>`;
+    }).join('');
+  }
+  function node(name, cardId, cls, affVal, sparks, sparksLimit){
+    const sz = cls==='gp'?'ltree-portrait gp':'ltree-portrait '+cls;
+    return `<div class="ltree-node">
+      <img class="${sz}" src="/img/${cardId}" onerror="this.style.visibility='hidden'" title="${esc(name)}">
+      <div class="ltree-name" title="${esc(name)}">${esc(name)}</div>
+      ${affBadge(affVal)}
+      <div class="ltree-sparks">${sparkChips(sparks, sparksLimit)}</div>
+    </div>`;
+  }
+
+  // Grandparents
+  const p1gps = (d.p1.grandparents||[]).sort((a,b)=>a.position_id-b.position_id);
+  const p2gps = (d.p2.grandparents||[]).sort((a,b)=>a.position_id-b.position_id);
+  const gp1a = p1gps[0]||{}, gp1b = p1gps[1]||{};
+  const gp2a = p2gps[0]||{}, gp2b = p2gps[1]||{};
+
+  return `<div class="ltree">
+    <div class="ltree-row">
+      ${node(d.target_name, tc, 'trainee', d.affinity.total, null, 0)}
+    </div>
+    <hr class="ltree-sep">
+    <div class="ltree-row">
+      ${node(d.p1.name, d.p1.card_id, 'p1', ia.p1, d.p1.sparks, 5)}
+      ${node(d.p2.name, d.p2.card_id, 'p2', ia.p2, d.p2.sparks, 5)}
+    </div>
+    <hr class="ltree-sep">
+    <div class="ltree-row">
+      ${node(gp1a.name||'?', gp1a.card_id||0, 'gp', ia.p1_gp1, gp1a.sparks, 4)}
+      ${node(gp1b.name||'?', gp1b.card_id||0, 'gp', ia.p1_gp2, gp1b.sparks, 4)}
+      ${node(gp2a.name||'?', gp2a.card_id||0, 'gp', ia.p2_gp1, gp2a.sparks, 4)}
+      ${node(gp2b.name||'?', gp2b.card_id||0, 'gp', ia.p2_gp2, gp2b.sparks, 4)}
+    </div>
+  </div>`;
+}
+
 function openPairDetail(d){
   // Highlight: WANT list + universal high-act% skills + style/distance keywords
   _BREED_HI = new Set(WANT.map(w=>w.toLowerCase()));
@@ -1819,20 +1890,22 @@ function openPairDetail(d){
     <div class="seclab" style="display:flex;justify-content:space-between;align-items:center">
       <span>Expected Spark Proc Odds</span>
       <div class="odds-toggle">
-        <button class="odds-btn active" data-mode="full_run">Full run (3 events)</button>
+        <button class="odds-btn active" data-mode="full_run">Full run (2 events)</button>
         <button class="odds-btn ghost" data-mode="first_only">First inheritance only</button>
       </div>
     </div>
     <div class="odds-grid" id="oddsGrid">${sparkOddsGrid(d.spark_odds, 'full_run')}</div>
     <p class="muted" style="font-size:9px;margin-top:4px">
-      P(&ge;1 proc) per spark. <b>Full run</b> = 3 events. Stars: <span style="color:var(--accent)">P1</span> / <span style="color:var(--pink)">P2</span>. Individual affinity model (Hakuraku/Polaris).
+      P(&ge;1 proc) per spark. <b>Full run</b> = 2 events. Stars: <span style="color:var(--accent)">P1</span> / <span style="color:var(--pink)">P2</span>. Individual affinity model (Hakuraku/Polaris).
     </p>` : '';
 
+  const treeHtml = lineageTree(d);
   $('#detailBody').innerHTML=`
     <div class="drow"><div style="flex:1">
       <div class="dname">${esc(d.p1.name)} × ${esc(d.p2.name)}</div>
       <div class="dmeta">breeding <b>${esc(d.target_name)}</b> · <b class="c-aff">Affinity ${c.total}</b>${c.win_bonus?' · <span class="c-g1">+'+c.win_bonus+' race</span>':''}</div>
     </div><button class="ghost" id="dClose">Close ✕</button></div>
+    ${treeHtml}
     ${oddsPanel}
     <details style="margin-top:8px"><summary class="seclab" style="cursor:pointer;user-select:none">Inherited factors + parent detail</summary>
     ${pairGrid(d.agg)}

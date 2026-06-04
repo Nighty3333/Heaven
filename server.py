@@ -1119,7 +1119,14 @@ def api_pair(req: PairReq):
                 "rank": c["rank"], "owner_name": c.get("owner_name"),
                 "note": n.get("note", ""), "tags": n.get("tags", []),
                 "sparks": [{"name": sp["name"], "stars": sp["stars"], "type": sp["type"]}
-                           for sp in c["own_sparks"]]}
+                           for sp in c["own_sparks"]],
+                "grandparents": [
+                    {"card_id": g.get("card_id"), "position_id": g.get("position_id"),
+                     "name": master.card_name(g.get("card_id", 0)),
+                     "sparks": [{"name": sp["name"], "stars": sp["stars"], "type": sp["type"]}
+                                for sp in g.get("sparks", [])]}
+                    for g in c.get("grandparents", []) if g.get("position_id") in (10, 20)
+                ]}
     # Flatten to legacy-compatible shape for the Breed tab frontend
     aff = {
         "total": comp["total"],
@@ -1132,9 +1139,15 @@ def api_pair(req: PairReq):
     # Spark proc odds (hakuraku-style, individual affinity per entity)
     spark_odds = compute_spark_odds(p1, p2, comp, trainee_card=req.target)
 
+    # Individual affinities for the tree visualization
+    import affinity as _aff2
+    indiv = _aff2.individual_affinities_from_parsed(req.target, p1, p2)
+
     return {"affinity": aff, "target_name": master.card_name(req.target),
             "p1": brief(p1), "p2": brief(p2), "agg": agg_list,
-            "spark_odds": spark_odds}
+            "spark_odds": spark_odds,
+            "individual_affinities": indiv,
+            "target_card": req.target}
 
 
 class NoteReq(BaseModel):
