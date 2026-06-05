@@ -155,6 +155,8 @@ C:\Users\<YOUR_USERNAME>\.mitmproxy\mitmproxy-ca-cert.cer
 Import-Certificate -FilePath "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer" -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
+> ⚠️ **Mind the backslash** between `USERPROFILE` and `.mitmproxy`. It's easy to drop when copying. The path must be `$env:USERPROFILE\.mitmproxy\…` — **not** `$env:USERPROFILE.mitmproxy\…`. If you get *"The certificate file could not be found"*, that missing `\` is almost always the cause.
+
 **Or via GUI:**
 
 1. Double-click the `.cer` file
@@ -189,6 +191,7 @@ The proxy auto-detects your `udid` from game request headers on first capture. I
 
 | Problem | Solution |
 |---------|----------|
+| `Import-Certificate : The certificate file could not be found` | A backslash got dropped from the path. Use exactly `"$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer"` — note the `\` before `.mitmproxy`. Or just double-click the `.cer` file and use the GUI steps instead |
 | SSL errors or `SEC_ERROR` in the game | Certificate not installed correctly. Redo step 3b — make sure you select **Local Machine** and the **Trusted Root** store, not Current User |
 | `mitmdump exited immediately` | Something is already using port 8080, or the certificate isn't installed. Try `mitmdump --listen-port 8080` in a terminal to see the real error |
 | Capture running but no data appears | Game traffic isn't going through the proxy. Check Windows Settings > Proxy — it should be set to `127.0.0.1:8080` |
