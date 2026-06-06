@@ -5,6 +5,7 @@ data/udid.txt
 
 # User data (per-account, not shareable)
 data/*.jsonl
+data/*.bak
 data/heir_capture_*.jsonl
 data/raw_capture.jsonl
 data/raw_full.jsonl

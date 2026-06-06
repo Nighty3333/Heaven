@@ -1845,6 +1845,157 @@ def api_stadium_csv():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  ROUTES — Community DB (export everything · import-MERGES into another Heaven)
+#  Bundles the two accumulating observation datasets — Team Trials history
+#  (skills + activation %) and Stadium observations — into one shareable file.
+#  Import APPENDS with dedup: existing data is never replaced or lost, new rows
+#  are summed in. A rolling backup is taken before every import so it can be
+#  undone. Build a long-lived community database across many players.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _read_jsonl_list(path) -> list[dict]:
+    out: list[dict] = []
+    if path.exists():
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except Exception:
+                    pass
+    return out
+
+
+def _tt_key(r: dict) -> str:
+    """Stable per-row key for Team Trials history (trial · race · horse)."""
+    return f"{r.get('trial_id')}|{r.get('race_idx')}|{r.get('trained_chara_id')}"
+
+
+def _db_paths():
+    """(live_tt, live_stadium, backup_tt, backup_stadium)."""
+    h = skill_planner.HISTORY_PATH
+    s = stadium_tracker.OBSERVATIONS_PATH
+    return h, s, h.with_name(h.name + ".bak"), s.with_name(s.name + ".bak")
+
+
+def _backup_db():
+    """Snapshot the live datasets to single rolling .bak files (overwritten each
+    time) so the last import can always be undone."""
+    import shutil
+    h, s, hb, sb = _db_paths()
+    if h.exists():
+        shutil.copy2(h, hb)
+    if s.exists():
+        shutil.copy2(s, sb)
+
+
+@app.get("/api/db/export")
+def api_db_export():
+    """Download all accumulated observation data (TT history + stadium) as one
+    file to hand to another player. Contains game observations only — no account
+    credentials."""
+    tt = _read_jsonl_list(skill_planner.HISTORY_PATH)
+    stadium = _read_jsonl_list(stadium_tracker.OBSERVATIONS_PATH)
+    bundle = {
+        "heaven_db": 1,
+        "exported_at": int(_time.time()),
+        "counts": {"tt": len(tt), "stadium": len(stadium)},
+        "tt": tt,
+        "stadium": stadium,
+    }
+    return Response(
+        content=json.dumps(bundle, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=heaven-data.json"},
+    )
+
+
+@app.post("/api/db/import")
+async def api_db_import(file: UploadFile = File(...)):
+    """Merge another Heaven's export into this one. Dedups so nothing is lost or
+    duplicated; returns how many rows were added vs skipped as already-known."""
+    try:
+        raw = await file.read()
+        bundle = json.loads(raw.decode("utf-8", errors="replace"))
+    except Exception as e:
+        return JSONResponse({"error": f"could not read file: {e}"}, status_code=400)
+    if not isinstance(bundle, dict) or ("tt" not in bundle and "stadium" not in bundle):
+        return JSONResponse({"error": "not a Heaven data export"}, status_code=400)
+
+    # Safety net: snapshot current data before merging (rolling single backup).
+    _backup_db()
+
+    # ── Team Trials history (dedup by trial·race·horse) ──
+    tt_in = bundle.get("tt") or []
+    seen = {_tt_key(r) for r in _read_jsonl_list(skill_planner.HISTORY_PATH)}
+    tt_added = tt_dupes = 0
+    skill_planner.HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(skill_planner.HISTORY_PATH, "a", encoding="utf-8") as f:
+        for r in tt_in:
+            if not isinstance(r, dict):
+                continue
+            k = _tt_key(r)
+            if k in seen:
+                tt_dupes += 1
+                continue
+            seen.add(k)
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            tt_added += 1
+
+    # ── Stadium observations (dedup by packet_key) ──
+    st_in = bundle.get("stadium") or []
+    st_seen = stadium_tracker._load_seen_keys()
+    st_added = st_dupes = 0
+    stadium_tracker.OBSERVATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(stadium_tracker.OBSERVATIONS_PATH, "a", encoding="utf-8") as f:
+        for r in st_in:
+            if not isinstance(r, dict):
+                continue
+            k = r.get("packet_key")
+            if not k or k in st_seen:
+                st_dupes += 1
+                continue
+            st_seen.add(k)
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            st_added += 1
+
+    _ACT_CACHE.clear()  # recompute activation% with the merged data
+    return {
+        "ok": True, "backup": True,
+        "tt_added": tt_added, "tt_dupes": tt_dupes,
+        "stadium_added": st_added, "stadium_dupes": st_dupes,
+    }
+
+
+@app.get("/api/db/backup_status")
+def api_db_backup_status():
+    """Whether an undo point (pre-import backup) exists."""
+    _, _, hb, sb = _db_paths()
+    return {"available": hb.exists() or sb.exists()}
+
+
+@app.post("/api/db/restore")
+def api_db_restore():
+    """Undo the last import: restore the datasets from the rolling backup."""
+    import shutil
+    h, s, hb, sb = _db_paths()
+    if not hb.exists() and not sb.exists():
+        return JSONResponse({"error": "no backup available"}, status_code=400)
+    if hb.exists():
+        shutil.copy2(hb, h)
+    if sb.exists():
+        shutil.copy2(sb, s)
+    _ACT_CACHE.clear()
+    return {
+        "ok": True, "restored": True,
+        "tt": len(_read_jsonl_list(h)),
+        "stadium": len(_read_jsonl_list(s)),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Startup
 # ═══════════════════════════════════════════════════════════════════════════
 

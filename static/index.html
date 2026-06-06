@@ -1241,6 +1241,11 @@
       <button id="tt-capture-btn" class="btn-capture" onclick="ttToggleCapture()">▶ Start capture</button>
       <button class="ghost" onclick="ttProcessCaptures()" title="Process already-captured trials" style="font-size:11px;padding:6px 12px">↻ Process</button>
       <button class="ghost" onclick="ttLoad()" style="font-size:11px;padding:6px 12px">⟳ Refresh</button>
+      <button class="ghost" onclick="dbExport()" title="Download ALL your data (Team Trials skills, activation %, and stadium) as one file to share with others" style="font-size:11px;padding:6px 12px">⬇ Export data</button>
+      <button class="ghost" onclick="document.getElementById('db-import-file').click()" title="Import another player's export and MERGE it into yours — adds new data, never deletes or replaces" style="font-size:11px;padding:6px 12px">⬆ Import &amp; merge</button>
+      <input type="file" id="db-import-file" accept=".json,application/json" style="display:none" onchange="dbImport(this)">
+      <button class="ghost" id="db-undo-btn" onclick="dbRestore()" title="Undo the last import — restores from the automatic pre-import backup" style="font-size:11px;padding:6px 12px;display:none">↩ Undo import</button>
+      <span id="db-import-status" class="tt-status-line" style="margin-left:4px"></span>
     </div>
   </div>
 
@@ -3685,6 +3690,47 @@ async function ttLoadStadium(){
     ttRenderStadiumTable();
   }catch(e){}
 }
+
+// ---- Community DB: export everything / import-merge another player's data ----
+function dbExport(){
+  window.location.href = '/api/db/export';
+  const s=$('#db-import-status'); if(s){ s.textContent='Exported heaven-data.json'; s.style.color='var(--green)'; setTimeout(()=>s.textContent='',4000); }
+}
+async function dbImport(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const s=$('#db-import-status'); if(s){ s.textContent='Backing up + merging '+file.name+'…'; s.style.color='var(--mut)'; }
+  const fd=new FormData(); fd.append('file', file);
+  try{
+    const r=await fetch('/api/db/import',{method:'POST',body:fd}).then(r=>r.json());
+    if(r.error){ if(s){s.textContent='Import failed: '+r.error; s.style.color='var(--red)';} }
+    else if(s){
+      s.style.color='var(--green)';
+      s.textContent=`Merged: +${r.tt_added} trials (${r.tt_dupes} dupes), +${r.stadium_added} stadium (${r.stadium_dupes} dupes) · backup saved`;
+      const u=$('#db-undo-btn'); if(u) u.style.display='';
+      ttLoad && ttLoad(); ttLoadStadium && ttLoadStadium();
+    }
+  }catch(e){ if(s){s.textContent='Import failed: '+e.message; s.style.color='var(--red)';} }
+  input.value='';
+}
+async function dbRestore(){
+  if(!confirm('Undo the last import? This restores your data from the automatic backup taken right before that import.')) return;
+  const s=$('#db-import-status'); if(s){ s.textContent='Restoring backup…'; s.style.color='var(--mut)'; }
+  try{
+    const r=await fetch('/api/db/restore',{method:'POST'}).then(r=>r.json());
+    if(r.error){ if(s){s.textContent='Restore failed: '+r.error; s.style.color='var(--red)';} }
+    else if(s){
+      s.style.color='var(--green)';
+      s.textContent=`Restored: ${r.tt} trials, ${r.stadium} stadium`;
+      ttLoad && ttLoad(); ttLoadStadium && ttLoadStadium();
+    }
+  }catch(e){ if(s){s.textContent='Restore failed: '+e.message; s.style.color='var(--red)';} }
+}
+async function dbCheckBackup(){
+  try{ const r=await fetch('/api/db/backup_status').then(r=>r.json());
+    const u=$('#db-undo-btn'); if(u) u.style.display = r.available ? '' : 'none';
+  }catch(e){}
+}
+dbCheckBackup();
 
 async function ttImportStadiumCsv(input){
   const file=input.files&&input.files[0];
