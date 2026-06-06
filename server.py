@@ -1799,6 +1799,20 @@ def api_process():
     return tt_capture.run_analyzer()
 
 
+@app.post("/api/tt/import_native")
+def api_tt_import_native():
+    """Decode the in-game WinHTTP capture (native_capture.jsonl, produced by the
+    overlay's Team Trials tap) into raw_full.jsonl, then run the analyzer. No
+    proxy or certificate — the data is captured inside the game process."""
+    import native_import
+    dec = native_import.import_native()
+    if not dec.get("ok"):
+        return dec
+    analyze = tt_capture.run_analyzer()
+    return {"ok": True, "decoded": dec.get("decoded", 0),
+            "lines": dec.get("lines", 0), "analyze": analyze}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  ROUTES — Stadium tracker
 # ═══════════════════════════════════════════════════════════════════════════

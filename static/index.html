@@ -1239,6 +1239,7 @@
     <div class="tt-hero-actions">
       <span id="tt-capture-status" class="tt-capture-badge" style="display:none"></span>
       <button id="tt-capture-btn" class="btn-capture" onclick="ttToggleCapture()">▶ Start capture</button>
+      <button class="ghost" onclick="ttImportNative()" title="Import Team Trials captured in-game by the Heaven overlay (no proxy needed). Enable 'Team Trials' capture in the overlay first." style="font-size:11px;padding:6px 12px">⬇ Import in-game</button>
       <button class="ghost" onclick="ttProcessCaptures()" title="Process already-captured trials" style="font-size:11px;padding:6px 12px">↻ Process</button>
       <button class="ghost" onclick="ttLoad()" style="font-size:11px;padding:6px 12px">⟳ Refresh</button>
       <button class="ghost" onclick="dbExport()" title="Download ALL your data (Team Trials skills, activation %, and stadium) as one file to share with others" style="font-size:11px;padding:6px 12px">⬇ Export data</button>
@@ -3807,6 +3808,17 @@ async function ttProcessCaptures(){
   if(r.added>0) alert(`Added ${r.added} new trial(s).`);
   else if(r.nothing_new) alert('No new trials to add.');
   else if(r.error) alert('Processing failed:\n'+r.error);
+  ttLoad();
+  ttLoadStadium();
+}
+
+async function ttImportNative(){
+  const r=await fetch('/api/tt/import_native',{method:'POST'}).then(r=>r.json()).catch(e=>({ok:false,error:e.message}));
+  if(!r.ok){ alert('In-game import failed:\n'+(r.error||'unknown')); return; }
+  const added=r.analyze && r.analyze.added || 0;
+  if(added>0) alert(`In-game capture: decoded ${r.decoded} response(s) → added ${added} new trial(s).`);
+  else if(r.decoded>0) alert(`In-game capture: decoded ${r.decoded} response(s), but no new complete trials (need start + decide_frame_order).`);
+  else alert('No new in-game capture to import. Make sure "Team Trials" capture is ON in the overlay and you played a match.');
   ttLoad();
   ttLoadStadium();
 }
