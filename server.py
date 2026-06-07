@@ -710,6 +710,11 @@ def aggregate(rows: list[dict]) -> dict:
         e["superseded_versions"] = superseded_by_chara.get(e.get("chara_id"), 0)
     by_uma = kept
 
+    # Team total average across every uma's every race — the threshold the
+    # source sheet uses for Trimmed AVG.
+    _all_scores = [t["display_score"] for e in by_uma.values() for t in e["trials"]]
+    team_avg = statistics.mean(_all_scores) if _all_scores else 0
+
     # Per-uma metrics  (uses display_score = ingame-matching number)
     for tcid, e in by_uma.items():
         scores = [t["display_score"] for t in e["trials"]]
@@ -722,10 +727,13 @@ def aggregate(rows: list[dict]) -> dict:
         else:
             stdev = 0
             cv = 0
-        # Trimmed AVG: drop lowest if it's below 80% of avg
+        # Trimmed AVG (matches the source sheet): drop the single lowest score
+        # only if it's below 80% of the TEAM total average, so one bad race
+        # doesn't tank the uma's average.
         trimmed_avg = avg
-        if n >= 3 and scores and min(scores) < 0.8 * avg:
-            trimmed = [s for s in scores if s != min(scores)]
+        if n >= 2 and scores and min(scores) < 0.8 * team_avg:
+            trimmed = scores[:]
+            trimmed.remove(min(trimmed))
             trimmed_avg = statistics.mean(trimmed) if trimmed else avg
         # Ceiling 90th / Floor 10th percentile
         if n >= 2:

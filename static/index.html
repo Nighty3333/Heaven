@@ -3334,6 +3334,7 @@ function ttRender(){
     <span style="min-width:180px">Uma</span>
     <span class="tt-ra2-stats">
       <span style="min-width:52px;text-align:center;cursor:pointer" onclick="ttSetSort('avg_score')" title="Average score across all races this uma ran. Higher = stronger overall. Click to sort.">AVG${TT_SORT_KEY==='avg_score'?(TT_SORT_DIR>0?' &uarr;':' &darr;'):''}</span>
+      <span style="min-width:52px;text-align:center;cursor:pointer" onclick="ttSetSort('trimmed_avg')" title="Trimmed AVG = average after dropping the single lowest race, but only if that race was below 80% of your team's total average. Stops one bad race from tanking the number. Click to sort.">TRIM${TT_SORT_KEY==='trimmed_avg'?(TT_SORT_DIR>0?' &uarr;':' &darr;'):''}</span>
       <span style="min-width:52px;text-align:center;cursor:pointer" onclick="ttSetSort('cv')" title="CV% (Coefficient of Variation) = consistency. Std deviation ÷ average, as a percentage. LOWER is better: low % = steady race to race, high % = swingy/inconsistent. Click to sort.">CV%${TT_SORT_KEY==='cv'?(TT_SORT_DIR>0?' &uarr;':' &darr;'):''}</span>
       <span style="min-width:52px;text-align:center;cursor:pointer" onclick="ttSetSort('ceiling')" title="BEST = the highest single-race score this uma hit. Its ceiling / best case. Click to sort.">BEST${TT_SORT_KEY==='ceiling'?(TT_SORT_DIR>0?' &uarr;':' &darr;'):''}</span>
       <span style="min-width:52px;text-align:center;cursor:pointer" onclick="ttSetSort('floor')" title="WORST = the lowest single-race score this uma hit. Its floor / worst case. A high floor means it rarely flops. Click to sort.">WORST${TT_SORT_KEY==='floor'?(TT_SORT_DIR>0?' &uarr;':' &darr;'):''}</span>
@@ -3362,6 +3363,7 @@ function ttRender(){
       </div>
       <div class="tt-ra2-stats">
         <div class="tt-ra2-stat"><b>${u.avg_score.toLocaleString()}</b><small>avg</small></div>
+        <div class="tt-ra2-stat"><b>${(u.trimmed_avg??u.avg_score).toLocaleString()}</b><small>trim</small></div>
         <div class="tt-ra2-stat"><b class="${ttCvColor(u.cv)}">${u.cv}%</b><small>cv</small></div>
         <div class="tt-ra2-stat"><b>${u.ceiling.toLocaleString()}</b><small>best</small></div>
         <div class="tt-ra2-stat"><b>${u.floor.toLocaleString()}</b><small>worst</small></div>
