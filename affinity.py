@@ -165,10 +165,15 @@ def individual_affinities_from_parsed(trainee_card: int, p1: dict, p2: dict) -> 
     t = master.chara_id_of(trainee_card)
     c1 = master.chara_id_of(p1["card_id"])
     c2 = master.chara_id_of(p2["card_id"])
+    # Only the 2 DIRECT grandparents (position 10/20) count in CR — the parsed
+    # grandparents list also includes great-grandparents (11/12/21/22), which
+    # must NOT be fed to calc_relation or affinity inflates badly.
     gps1 = [master.chara_id_of(g["card_id"])
-            for g in p1.get("grandparents", []) if g.get("card_id")]
+            for g in p1.get("grandparents", [])
+            if g.get("card_id") and g.get("position_id") in (10, 20)]
     gps2 = [master.chara_id_of(g["card_id"])
-            for g in p2.get("grandparents", []) if g.get("card_id")]
+            for g in p2.get("grandparents", [])
+            if g.get("card_id") and g.get("position_id") in (10, 20)]
 
     cr1 = calc_relation(t, c1, gps1)
     cr2 = calc_relation(t, c2, gps2)
@@ -215,9 +220,13 @@ def compatibility_from_parsed(trainee_card: int, p1: dict, p2: dict) -> dict:
     c1 = master.chara_id_of(p1["card_id"])
     c2 = master.chara_id_of(p2["card_id"])
 
-    # Extract GP chara_ids
-    gps1 = [master.chara_id_of(g["card_id"]) for g in p1.get("grandparents", []) if g.get("card_id")]
-    gps2 = [master.chara_id_of(g["card_id"]) for g in p2.get("grandparents", []) if g.get("card_id")]
+    # Extract GP chara_ids — only the 2 DIRECT grandparents (position 10/20).
+    # The list also contains great-grandparents (11/12/21/22) which must NOT
+    # enter CR, or affinity inflates (this was the breeding-optimizer bug).
+    gps1 = [master.chara_id_of(g["card_id"]) for g in p1.get("grandparents", [])
+            if g.get("card_id") and g.get("position_id") in (10, 20)]
+    gps2 = [master.chara_id_of(g["card_id"]) for g in p2.get("grandparents", [])
+            if g.get("card_id") and g.get("position_id") in (10, 20)]
 
     # Compute WSB offline — no bridge needed!
     wsb1 = wsb_from_parsed(p1)
