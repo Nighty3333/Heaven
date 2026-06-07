@@ -40,6 +40,12 @@ def rl3(chara_a: int, chara_b: int, chara_gp: int) -> int:
     No extra points for gp membership itself."""
     if chara_a == chara_b or not chara_a or not chara_b or not chara_gp:
         return 0
+    # If the grandparent is the SAME chara as the trainee (or the parent), the
+    # game grants no grandparent bonus (verified in-game: a GP equal to the
+    # trainee shows "+0"). Without this, rl3 wrongly returns the base relation
+    # again, double-counting (e.g. a pair read 360 instead of the in-game 330).
+    if chara_gp == chara_a or chara_gp == chara_b:
+        return 0
     crt = master.chara_relation_types()
     pts = master.relation_points()
     shared_ab = crt.get(chara_a, set()) & crt.get(chara_b, set())
