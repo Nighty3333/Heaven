@@ -373,6 +373,31 @@ def _skill_rarity_map():
             cur.execute("SELECT id, rarity FROM skill_data")}
 
 
+@lru_cache(maxsize=1)
+def _skill_tier_map():
+    """skill name -> Rappy inheritance tier: 'white' | 'circle' | 'gold'.
+    circle = white skill whose name carries the ○ marker; gold = rarity 2.
+    Verified against master.mdb: all ○ names are rarity 1, no gold name has ○."""
+    names = _skill_names()            # skill_id -> name
+    rar = _skill_rarity_map()         # skill_id -> rarity
+    out = {}
+    for sid, nm in names.items():
+        if not nm:
+            continue
+        if "○" in nm:
+            out[nm] = "circle"
+        elif rar.get(int(sid)) == 2:
+            out[nm] = "gold"
+        else:
+            out[nm] = "white"
+    return out
+
+
+def skill_tier(name: str) -> str:
+    """Rappy inheritance tier for a white-skill factor name. Defaults to 'white'."""
+    return _skill_tier_map().get(name, "white")
+
+
 def skill_sv(skill_id: int) -> int:
     """Skill Value points.
     rarity 2 (gold) = 12 pts.

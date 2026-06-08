@@ -411,6 +411,7 @@
   .odds-btn{font-size:11px !important;padding:4px 11px !important;border-radius:6px !important}
   .odds-btn.active{background:linear-gradient(135deg,var(--accent),#4a8fb5) !important;color:#fff !important;border-color:transparent !important;box-shadow:0 1px 4px rgba(90,159,212,0.25) !important}
   .odds-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px 8px;margin-top:6px}
+  .odds-grid.inherit{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
   .odds-type-header{grid-column:1/-1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
                     padding:4px 0 1px;border-bottom:1px solid var(--line);margin-top:2px}
   .odds-type-header:first-child{margin-top:0}
@@ -1334,7 +1335,6 @@
   <div class="tt-card">
     <div class="tt-card-header">
       <h2 class="tt-card-title">Your status</h2>
-      <span class="tt-card-sub">auto-detected per player</span>
     </div>
     <div id="tt-player-grid" class="tt-player-grid"></div>
   </div>
@@ -1342,7 +1342,6 @@
   <div class="tt-card">
     <div class="tt-card-header">
       <h2 class="tt-card-title">Race Analysis</h2>
-      <span class="tt-card-sub">click any row for the full breakdown</span>
       <div class="tt-card-tools">
         <span id="tt-filter-count" class="tt-status-line"></span>
       </div>
@@ -1359,7 +1358,6 @@
   <div class="tt-card">
     <div class="tt-card-header">
       <h2 class="tt-card-title">Skill Planner</h2>
-      <span class="tt-card-sub">end-of-career SP shopping list for Team Trials</span>
     </div>
     <div class="tt-form-row">
       <div class="tt-form-field">
@@ -1386,7 +1384,6 @@
   <div class="tt-card">
     <div class="tt-card-header">
       <h2 class="tt-card-title">Skill Lookup</h2>
-      <span class="tt-card-sub">average activation % of any skill across every owning uma</span>
     </div>
     <div class="tt-form-row">
       <div class="tt-form-field" style="flex:2">
@@ -1406,7 +1403,6 @@
   <div class="tt-card">
     <div class="tt-card-header">
       <h2 class="tt-card-title">Track &amp; Condition</h2>
-      <span class="tt-card-sub">tracks, weather and starting gates from your trials</span>
       <div class="tt-card-tools">
         <span id="tt-stadium-count" class="tt-status-line"></span>
         <input type="file" id="tt-stadium-upload" accept=".csv" style="display:none" onchange="ttImportStadiumCsv(this)">
@@ -1419,7 +1415,6 @@
 
     <div class="tt-card-header" style="margin-top:8px">
       <h2 class="tt-card-title" style="font-size:14px">All rounds</h2>
-      <span class="tt-card-sub">filter by any column</span>
       <div class="tt-card-tools">
         <input id="tt-stadium-search" class="tt-filter-input" style="width:180px" placeholder="search track/weather…" oninput="ttRenderStadiumTable()">
       </div>
@@ -1833,7 +1828,7 @@ function dossierSparks(u){
     return `<div class="spark-group"><div class="sg-head"><span class="sg-ic" style="background:${STAR_COL[t]}"></span>${label}<span class="sg-ct">${total}★</span></div>${items}</div>`;
   };
   return `<div class="dcell">
-    <h4>Spark Breakdown<span class="ws-sub" style="color:var(--ink3)">total ★ = trainee + 2 parents</span></h4>
+    <h4>Spark Breakdown</h4>
     <div class="spark-table">${grp('blue','Blue · Stat')}${grp('pink','Pink · Aptitude')}${grp('green','Green · Unique')||''}</div>
   </div>`;
 }
@@ -2361,7 +2356,7 @@ function openDetail(u){
     </div>
     <button class="ghost" id="dTogglePar" style="margin-top:12px;font-size:12px">Show each parent's sparks ▾</button>
     <div id="dPar" class="hide" style="margin-top:8px">${pdet}</div>
-    <p class="muted" style="margin:10px 0 0;font-size:11px">Total ★ = trainee + 2 parents. (N★) = trainee's own. % = approx inspiration proc (estimate).</p>`;
+    `;
   $('#dClose').onclick=()=>$('#detail').classList.add('hide');
   $('#dFilter').onclick=()=>filterByUma(u);
   $('#dSave').onclick=()=>saveDetail(u);
@@ -2712,6 +2707,24 @@ function sparkOddsGrid(odds, mode){
   }).join('');
 }
 
+function inheritGrid(items){
+  if(!items || !items.length) return '<span class="muted">No white-skill factors in this lineage</span>';
+  const tierMeta = {white:{lbl:'white',col:'var(--mut)'},circle:{lbl:'○ circle',col:'#7fd0ff'},gold:{lbl:'gold',col:'gold'}};
+  return items.map(s=>{
+    const t = tierMeta[s.tier]||tierMeta.white;
+    const barColor = s.ge1_pct >= 50 ? 'var(--ok)' : s.ge1_pct >= 30 ? 'var(--accent)' : 'var(--mut)';
+    const oddsHi = _isBreedMatch(s.name);
+    const hiStyle = oddsHi ? 'background:rgba(218,165,32,0.12);border-radius:4px' : '';
+    const hiName = oddsHi ? 'color:#f0d060;font-weight:600' : '';
+    const tierBadge = `<span style="font-size:9px;color:${t.col};border:1px solid ${t.col};border-radius:4px;padding:0 5px;margin-left:6px">${t.lbl}</span>`;
+    const copiesBadge = `<span style="font-size:10px;color:var(--mut);margin-left:6px">×${s.copies} in lineage</span>`;
+    return `<div class="odds-row" style="${hiStyle}">
+      <div class="odds-name" style="${hiName}">${esc(s.name)}${tierBadge}${copiesBadge}</div>
+      <div class="odds-val" style="color:${barColor}" title="${s.base_pct}% × 1.1^${s.copies} copies">${s.ge1_pct}%</div>
+    </div>`;
+  }).join('');
+}
+
 function lineageTree(d){
   const ia = d.individual_affinities || {};
   const tc = d.target_card || 0;
@@ -2800,16 +2813,14 @@ function openPairDetail(d){
   const hasOdds = d.spark_odds && (d.spark_odds.full_run || d.spark_odds.first_only);
   const oddsPanel = hasOdds ? `
     <div class="seclab" style="display:flex;justify-content:space-between;align-items:center">
-      <span>Expected Inspiration Proc Odds</span>
+      <span id="oddsTitle">Expected Inspiration Proc Odds</span>
       <div class="odds-toggle">
         <button class="odds-btn active" data-mode="full_run">Full run (2 events)</button>
         <button class="odds-btn ghost" data-mode="first_only">First inspiration only</button>
+        <button class="odds-btn ghost" data-mode="inheritance">Inheritance</button>
       </div>
     </div>
-    <div class="odds-grid" id="oddsGrid">${sparkOddsGrid(d.spark_odds, 'full_run')}</div>
-    <p class="muted" style="font-size:9px;margin-top:4px">
-      P(&ge;1 proc) during the <b>inspiration</b> events of the run (not the factor inherited at graduation). <b>Full run</b> = 2 events. Stars: <span style="color:var(--accent)">P1</span> / <span style="color:var(--pink)">P2</span>. Click any spark to see which tree entity contributes what.
-    </p>` : '';
+    <div class="odds-grid" id="oddsGrid">${sparkOddsGrid(d.spark_odds, 'full_run')}</div>` : '';
 
   const treeHtml = lineageTree(d);
   $('#detailBody').innerHTML=`
@@ -2830,8 +2841,17 @@ function openPairDetail(d){
       btn.onclick=()=>{
         $$('.odds-btn').forEach(b=>{b.classList.remove('active');b.classList.add('ghost');});
         btn.classList.add('active');btn.classList.remove('ghost');
-        $('#oddsGrid').innerHTML = sparkOddsGrid(d.spark_odds, btn.dataset.mode);
-        _bindOddsExpand();
+        const m=btn.dataset.mode;
+        if(m==='inheritance'){
+          $('#oddsTitle').textContent='Inheritance Odds (at graduation)';
+          $('#oddsGrid').classList.add('inherit');
+          $('#oddsGrid').innerHTML = inheritGrid((d.spark_odds||{}).inheritance||[]);
+        } else {
+          $('#oddsTitle').textContent='Expected Inspiration Proc Odds';
+          $('#oddsGrid').classList.remove('inherit');
+          $('#oddsGrid').innerHTML = sparkOddsGrid(d.spark_odds, m);
+          _bindOddsExpand();
+        }
       };
     });
     _bindOddsExpand();

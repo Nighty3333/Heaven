@@ -514,6 +514,41 @@ def compute_spark_odds(p1: dict, p2: dict, compatibility: dict,
                       "skill": 2, "white": 2, "scenario": 2, "race": 3}
         entries.sort(key=lambda e: (type_order.get(e["cat"], 9), -e["ge1_pct"]))
         results[mode] = entries
+
+    # ── Inheritance odds (Rappy model, WHITE skills only) ──────────────
+    # Chance a white skill becomes a factor on the graduated trainee:
+    #   base(tier) × 1.1^(copies in lineage), capped at 100%.
+    # tier:  white 20% · circle(○) 25% · gold 40%.
+    # copies = number of the 6 tree entities carrying the skill
+    #          (each entity counts once, regardless of its star level).
+    import master as _m
+    _RAPPY_BASE = {"white": 0.20, "circle": 0.25, "gold": 0.40}
+    inh = []
+    for sp in sparks.values():
+        # white-type factors are inheritable as white sparks: skills (tiered
+        # white/circle/gold) AND race-win factors (always white tier). heir maps
+        # race -> white on purpose. Blue/pink/green/scenario are excluded.
+        if sp.get("type") != "white":
+            continue
+        srcs = [(k, v) for k, v in sp["sources"].items() if v > 0]
+        copies = len(srcs)
+        if copies <= 0:
+            continue
+        tier = _m.skill_tier(sp["name"])
+        base = _RAPPY_BASE.get(tier, 0.20)
+        chance = min(1.0, base * (1.1 ** copies))
+        c_p1 = sum(1 for k in ("p1", "p1_gp1", "p1_gp2") if sp["sources"].get(k, 0) > 0)
+        c_p2 = sum(1 for k in ("p2", "p2_gp1", "p2_gp2") if sp["sources"].get(k, 0) > 0)
+        inh.append({
+            "name": sp["name"], "cat": "white", "type": "white",
+            "tier": tier, "copies": copies,
+            "base_pct": round(base * 100, 1),
+            "ge1_pct": round(chance * 100, 2),
+            "copies_p1": c_p1, "copies_p2": c_p2,
+            "sources": [{"src": k, "stars": v} for k, v in srcs],
+        })
+    inh.sort(key=lambda e: (-e["ge1_pct"], e["name"]))
+    results["inheritance"] = inh
     return results
 
 
