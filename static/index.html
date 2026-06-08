@@ -2600,6 +2600,10 @@ async function runBreed(){
 }
 function combo(c, idx){
   const blue=Object.entries(c.blue||{}).map(([k,v])=>`<span style="color:var(--ink2)">${esc(k)} <b class="mono" style="color:var(--blue)">${v}</b></span>`).join('  ');
+  // RAW total ★ of the blue stats you put in "wanted" (both parents + their
+  // direct grandparents) — highlights how much Power/Wit/etc this pair gives.
+  const _wb=Object.entries(c.blue_raw||{}).map(([k,v])=>`${esc(k)} ${v}★`).join(' · ');
+  const wbChip=_wb?`<span class="mono" style="font-size:10px;color:#08131f;background:var(--blue);border-radius:4px;padding:1px 7px;font-weight:800" title="Total raw stars of your wanted blue stats from this pair (both parents + their grandparents) — matches the in-game total">${_wb}</span>`:'';
   const own=c.p2.owner_name?` <span class="friendb">${esc(c.p2.owner_name)}</span>`:'';
   const rank = idx != null ? `<span class="mono" style="color:var(--ink3);font-size:10px;font-weight:700">#${idx+1}</span>` : '';
   const av=(p)=>`<span class="av" style="width:40px;height:40px;font-size:13px;flex:none">${avInner(p.card_id,p.name)}</span>`;
@@ -2614,6 +2618,7 @@ function combo(c, idx){
       <span class="mono" style="font-size:16px;font-weight:800;color:var(--green)">${c.eproc!=null?c.eproc+'%':c.obj}</span>
       <span class="mono" style="font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase">${c.eproc!=null?'avg proc'+(c.eproc_n?' ('+c.eproc_n+')':''):'score'}</span>
       ${(BREED_APT && c.apt_result)?`<span class="mono" style="font-size:10px;color:#1a1205;background:gold;border-radius:4px;padding:1px 6px;font-weight:800" title="${esc(BREED_APT.aptitude)}: base ${BREED_APT.base} + ${c.apt_stars||0}★ red gene → ${c.apt_result}">${esc(BREED_APT.aptitude)} ${BREED_APT.base}→${c.apt_result}</span>`:''}
+      ${wbChip}
       <span class="mono" style="font-size:11px;color:var(--ink3);margin-left:auto">AFF <b style="color:var(--amber)">${c.affinity}</b></span>
       ${c.eblue!=null?`<span class="mono" style="font-size:11px;color:var(--ink3)">BLUE <b style="color:var(--blue)">${c.eblue}%</b></span>`:''}
       ${blue?`<span style="font-size:11px;color:var(--ink3)">·&nbsp; ${blue}</span>`:''}
@@ -3802,6 +3807,7 @@ async function ttLoadStadium(){
 
 // ---- Community DB: export everything / import-merge another player's data ----
 function dbExport(){
+  // browser download of the full observation bundle (TT history + stadium)
   window.location.href = '/api/db/export';
   const s=$('#db-import-status'); if(s){ s.textContent='Exported heaven-data.json'; s.style.color='var(--green)'; setTimeout(()=>s.textContent='',4000); }
 }

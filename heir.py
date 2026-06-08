@@ -268,15 +268,19 @@ def total_own_stars(c):
 
 
 def blue_strength(c):
-    """Fuerza de stat heredada (azul): estrellas propias (1.0) + abuelos (0.4) por stat."""
-    out = {v: 0.0 for v in STAT_NAMES.values()}
+    """OFFLINE: RAW total ★ of each blue stat — own + the 2 direct grandparents
+    (position 10/20), full value (no 0.4 weight). Matches the in-game total and
+    the raw-stars chip."""
+    out = {v: 0 for v in STAT_NAMES.values()}
     for sp in c["own_sparks"]:
         if sp["type"] == "blue" and sp["name"] in STAT_NAMES:
             out[STAT_NAMES[sp["name"]]] += sp["stars"]
     for g in c["grandparents"]:
+        if g.get("position_id") not in (10, 20):  # skip great-grandparents
+            continue
         for sp in g["sparks"]:
             if sp["type"] == "blue" and sp["name"] in STAT_NAMES:
-                out[STAT_NAMES[sp["name"]]] += sp["stars"] * 0.4
+                out[STAT_NAMES[sp["name"]]] += sp["stars"]
     return out
 
 
@@ -285,6 +289,8 @@ def score_for_want(c, want_lower):
         return sum(sp["stars"] * w for sp in sparks if sp["name"].lower() in want_lower)
     s = m(c["own_sparks"], 1.0)
     for g in c["grandparents"]:
+        if g.get("position_id") not in (10, 20):  # OFFLINE: skip great-grandparents
+            continue
         s += m(g["sparks"], 0.4)
     return s
 
@@ -295,6 +301,8 @@ def spark_richness(c):
         return sum(sp["stars"] * w for sp in sparks if sp["type"] in ("blue", "pink"))
     s = m(c["own_sparks"], 1.0)
     for g in c["grandparents"]:
+        if g.get("position_id") not in (10, 20):  # OFFLINE: skip great-grandparents
+            continue
         s += m(g["sparks"], 0.4)
     return s
 
@@ -319,6 +327,8 @@ def score_for_want_weighted(c, want_lower, skill_weights):
 
     s = m(c["own_sparks"], 1.0)
     for g in c["grandparents"]:
+        if g.get("position_id") not in (10, 20):  # OFFLINE: skip great-grandparents
+            continue
         s += m(g["sparks"], 0.4)
     return s
 
@@ -452,6 +462,11 @@ def expected_proc_score(p1: dict, p2: dict, target_card: int,
         # Accumulate score
         if is_blue:
             eblue += ge1
+            # OFFLINE (local only): honour blue stats typed in the wanted list
+            # (e.g. Power, Wit) so pairs that bring them rank to the top of the
+            # primary objective, not just the flat eblue bucket.
+            if want_lower and sp["name"].lower() in want_lower:
+                eproc += ge1
         else:
             # Apply skill_weights if provided
             weight = 1.0
@@ -544,6 +559,23 @@ def apt_stars_for_uma(c, apt_label_lower: str) -> int:
             if sp.get("type") == "pink" and sp["name"].lower() == apt_label_lower:
                 total += sp["stars"]
     return total
+
+
+def blue_stars_raw(p1, p2, names_lower):
+    """OFFLINE: RAW total ★ (integers) of given blue stat names across the 6
+    inheritance entities (both parents own + their 2 direct GPs, full value, no
+    weighting) — matches the in-game total. Returns {DisplayName: stars}."""
+    out = {}
+    for c in (p1, p2):
+        groups = [c.get("own_sparks", [])]
+        for g in c.get("grandparents", []):
+            if g.get("position_id") in (10, 20):
+                groups.append(g.get("sparks", []))
+        for sl in groups:
+            for sp in sl:
+                if sp.get("type") == "blue" and sp["name"].lower() in names_lower:
+                    out[sp["name"]] = out.get(sp["name"], 0) + sp["stars"]
+    return out
 
 
 def optimize_breed(ds, target, want, w_affinity=2.0, w_spark=1.0,
@@ -647,6 +679,8 @@ def optimize_breed(ds, target, want, w_affinity=2.0, w_spark=1.0,
         if chid[id(a)] == chid[id(b)]:
             continue
         r = evaluate(a, b)
+        if want_lower:
+            r["blue_raw"] = blue_stars_raw(a, b, want_lower)
         if _apt(a, b, r):
             own.append(r)
     own.sort(key=lambda x: x["obj"], reverse=True)
@@ -659,6 +693,8 @@ def optimize_breed(ds, target, want, w_affinity=2.0, w_spark=1.0,
                 if chid[id(a)] == chid[id(r2)]:
                     continue
                 r = evaluate(a, r2)
+                if want_lower:
+                    r["blue_raw"] = blue_stars_raw(a, r2, want_lower)
                 if _apt(a, r2, r):
                     rental.append(r)
         rental.sort(key=lambda x: x["obj"], reverse=True)
