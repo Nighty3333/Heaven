@@ -3202,6 +3202,16 @@ async function restoreUIState(s){
   if(s.scrollY) window.scrollTo(0, s.scrollY);
 }
 
+// ── Persist UI state so you continue exactly where you left off across F5,
+//    server restart, in-app update, or reopening the tab. Saved to localStorage
+//    (survives a browser close too); the Update & restart path also uses it. ──
+function saveUIState(){
+  try{ localStorage.setItem(STATE_KEY, JSON.stringify(captureUIState())); }catch(e){}
+}
+window.addEventListener('beforeunload', saveUIState);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveUIState(); });
+setInterval(saveUIState, 10000);
+
 // Character picker callback (used by breed target + inventory target pickers)
 let _affPickerCb = null;
 
@@ -3930,14 +3940,20 @@ async function bootstrap(){
   if(!s.has_trace){ SETUP.mode='setup'; await setupRefresh(); setupShow(); }
   else {
     await load(); renderWant();
-    // restore previous workflow after a Update & restart
+    // Restore where you left off: after Update & restart (sessionStorage flag),
+    // or after any plain reload / F5 / reopen (localStorage).
+    let _restored = false;
     if(sessionStorage.getItem(PENDING_KEY)){
       sessionStorage.removeItem(PENDING_KEY);
       const raw = sessionStorage.getItem(STATE_KEY);
       if(raw){
         sessionStorage.removeItem(STATE_KEY);
-        try{ await restoreUIState(JSON.parse(raw)); }catch(e){ console.warn('restore failed', e); }
+        try{ await restoreUIState(JSON.parse(raw)); _restored = true; }catch(e){ console.warn('restore failed', e); }
       }
+    }
+    if(!_restored){
+      const raw = localStorage.getItem(STATE_KEY);
+      if(raw){ try{ await restoreUIState(JSON.parse(raw)); }catch(e){ console.warn('restore failed', e); } }
     }
   }
   // background poll for new commits on origin
