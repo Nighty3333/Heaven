@@ -515,40 +515,6 @@ def compute_spark_odds(p1: dict, p2: dict, compatibility: dict,
         entries.sort(key=lambda e: (type_order.get(e["cat"], 9), -e["ge1_pct"]))
         results[mode] = entries
 
-    # ── Inheritance odds (Rappy model, WHITE skills only) ──────────────
-    # Chance a white skill becomes a factor on the graduated trainee:
-    #   base(tier) × 1.1^(copies in lineage), capped at 100%.
-    # tier:  white 20% · circle(○) 25% · gold 40%.
-    # copies = number of the 6 tree entities carrying the skill
-    #          (each entity counts once, regardless of its star level).
-    import master as _m
-    _RAPPY_BASE = {"white": 0.20, "circle": 0.25, "gold": 0.40}
-    inh = []
-    for sp in sparks.values():
-        # white-type factors are inheritable as white sparks: skills (tiered
-        # white/circle/gold) AND race-win factors (always white tier). heir maps
-        # race -> white on purpose. Blue/pink/green/scenario are excluded.
-        if sp.get("type") != "white":
-            continue
-        srcs = [(k, v) for k, v in sp["sources"].items() if v > 0]
-        copies = len(srcs)
-        if copies <= 0:
-            continue
-        tier = _m.skill_tier(sp["name"])
-        base = _RAPPY_BASE.get(tier, 0.20)
-        chance = min(1.0, base * (1.1 ** copies))
-        c_p1 = sum(1 for k in ("p1", "p1_gp1", "p1_gp2") if sp["sources"].get(k, 0) > 0)
-        c_p2 = sum(1 for k in ("p2", "p2_gp1", "p2_gp2") if sp["sources"].get(k, 0) > 0)
-        inh.append({
-            "name": sp["name"], "cat": "white", "type": "white",
-            "tier": tier, "copies": copies,
-            "base_pct": round(base * 100, 1),
-            "ge1_pct": round(chance * 100, 2),
-            "copies_p1": c_p1, "copies_p2": c_p2,
-            "sources": [{"src": k, "stars": v} for k, v in srcs],
-        })
-    inh.sort(key=lambda e: (-e["ge1_pct"], e["name"]))
-    results["inheritance"] = inh
     return results
 
 
@@ -613,8 +579,32 @@ def uma_ui(c, notes, src="mine"):
         a["pct"] = inspiration_pct(a["cat"], a["total"])
     agg_list = sorted(agg.values(), key=lambda a: -a["total"])
 
+    # ── Inheritance per learned skill (Rappy model) ────────────────────────
+    # For each white/gold skill this uma LEARNED, the chance it passes on as a
+    # factor next gen = base(tier) × 1.1^(copies of its light factor across the
+    # uma's lineage ancestors). Stars don't matter; we count entities.
+    anc_counts = {}
+    for g in c["grandparents"]:
+        for nm in {sp["name"] for sp in g["sparks"]}:   # each ancestor counts once
+            anc_counts[nm] = anc_counts.get(nm, 0) + 1
+    inheritance = []
+    seen_inh = set()
+    for sid in c.get("skills") or []:
+        info = master.skill_inherit_info(sid)
+        if not info or info["name"] in seen_inh:
+            continue
+        seen_inh.add(info["name"])
+        copies = anc_counts.get(info["count_name"], 0)
+        chance = min(1.0, info["base"] / 100 * (1.1 ** copies))
+        inheritance.append({
+            "name": info["name"], "tier": info["tier"], "base_pct": info["base"],
+            "copies": copies, "pct": round(chance * 100, 2),
+        })
+    inheritance.sort(key=lambda e: (-e["pct"], e["name"]))
+
     return {
         "src": src,
+        "inheritance": inheritance,
         "g1": master.count_g1_wins(c.get("race_result_list"), c.get("win_saddle_id_array")),
         "lineage_white": lineage_white,
         "agg": agg_list,

@@ -145,6 +145,7 @@ def parse_chara(entry, fmap, owner_name=None):
         "race_result_list": entry.get("race_result_list") or [],
         "stats": {s: entry.get(s, 0) for s in ("speed", "stamina", "power", "guts", "wiz")},
         "apt": parse_aptitudes(entry),
+        "skills": [s.get("skill_id") for s in (entry.get("skill_array") or []) if s.get("skill_id")],
         "own_sparks": decode_sparks(entry.get("factor_info_array"), fmap),
         "grandparents": [
             {"position_id": g.get("position_id"), "card_id": g.get("card_id"),

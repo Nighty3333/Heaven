@@ -373,29 +373,52 @@ def _skill_rarity_map():
             cur.execute("SELECT id, rarity FROM skill_data")}
 
 
+# ── Per-skill inheritance (Rappy model, anchored on a uma's learned skills) ──
 @lru_cache(maxsize=1)
-def _skill_tier_map():
-    """skill name -> Rappy inheritance tier: 'white' | 'circle' | 'gold'.
-    circle = white skill whose name carries the ○ marker; gold = rarity 2.
-    Verified against master.mdb: all ○ names are rarity 1, no gold name has ○."""
-    names = _skill_names()            # skill_id -> name
-    rar = _skill_rarity_map()         # skill_id -> rarity
+def _skill_meta():
+    """skill_id -> {rarity, group, name} from skill_data + text_data(47)."""
+    names = _skill_names()
     out = {}
-    for sid, nm in names.items():
-        if not nm:
-            continue
-        if "○" in nm:
-            out[nm] = "circle"
-        elif rar.get(int(sid)) == 2:
-            out[nm] = "gold"
-        else:
-            out[nm] = "white"
+    for r in _conn().execute("SELECT id, rarity, group_id FROM skill_data"):
+        sid = int(r[0])
+        out[sid] = {"rarity": int(r[1] or 0), "group": int(r[2] or 0),
+                    "name": names.get(sid, "")}
     return out
 
 
-def skill_tier(name: str) -> str:
-    """Rappy inheritance tier for a white-skill factor name. Defaults to 'white'."""
-    return _skill_tier_map().get(name, "white")
+@lru_cache(maxsize=1)
+def _group_base_light():
+    """group_id -> the base LIGHT factor name (rarity 1, no double-circle ◎).
+    That's the factor that actually shows up in a lineage and gets counted."""
+    bygroup = {}
+    for sid, m in _skill_meta().items():
+        bygroup.setdefault(m["group"], []).append(m)
+    out = {}
+    for gid, members in bygroup.items():
+        cand = [m for m in members if m["rarity"] == 1 and "◎" not in m["name"]]
+        if cand:
+            # prefer the plain/○ light; deterministic by id
+            cand.sort(key=lambda m: m["name"])
+            out[gid] = cand[0]["name"]
+    return out
+
+
+def skill_inherit_info(skill_id: int):
+    """For a LEARNED skill, the inheritance model (Rappy):
+        base 40% if gold (rarity 2) · 25% if double-circle ◎ · else 20%
+        count_name = the light factor whose copies in the lineage drive 1.1^n.
+    Returns None for non-white skills (unique/green/stat etc.)."""
+    m = _skill_meta().get(int(skill_id))
+    if not m or m["rarity"] not in (1, 2):
+        return None
+    if m["rarity"] == 2:
+        base, tier = 40, "gold"
+    elif "◎" in m["name"]:          # ◎ double circle
+        base, tier = 25, "double"
+    else:
+        base, tier = 20, "white"
+    count_name = _group_base_light().get(m["group"], m["name"])
+    return {"name": m["name"], "base": base, "tier": tier, "count_name": count_name}
 
 
 def skill_sv(skill_id: int) -> int:

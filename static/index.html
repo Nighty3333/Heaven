@@ -2336,6 +2336,17 @@ function openDetail(u){
       <img class="port sm" src="/img/${p.card_id}" onerror="this.style.visibility='hidden'">
       <b>Parent ${i+1}: ${esc(p.name)}</b></div><div>${chipsList(p.sparks)}</div></div>`).join('');
   const owner=u.src==='friend'?`<span class="friendb">friend</span> by ${esc(u.owner_name||'?')}`:`${(u.fans||0).toLocaleString()} fans`;
+  const inhTier={white:{lbl:'white',col:'var(--mut)'},double:{lbl:'◎',col:'#7fd0ff'},gold:{lbl:'gold',col:'gold'}};
+  const inhHtml=(u.inheritance&&u.inheritance.length)?`
+    <div class="seclab" style="margin-top:14px">Inheritance Odds — chance each skill passes on as a factor</div>
+    <div class="odds-grid inherit">${u.inheritance.map(s=>{
+      const t=inhTier[s.tier]||inhTier.white;
+      const bc=s.pct>=50?'var(--ok)':s.pct>=30?'var(--accent)':'var(--mut)';
+      return `<div class="odds-row">
+        <div class="odds-name">${esc(s.name)} <span style="font-size:9px;color:${t.col};border:1px solid ${t.col};border-radius:4px;padding:0 5px">${t.lbl}</span> <span style="font-size:10px;color:var(--mut)">×${s.copies}</span></div>
+        <div class="odds-val" style="color:${bc}" title="${s.base_pct}% × 1.1^${s.copies} copies in lineage">${s.pct}%</div>
+      </div>`;
+    }).join('')}</div>`:'';
   $('#detailBody').innerHTML=`
     <div class="drow">
       <div style="flex:1">
@@ -2354,6 +2365,7 @@ function openDetail(u){
       ${ptree}
       <div class="fgrid">${groups}</div>
     </div>
+    ${inhHtml}
     <button class="ghost" id="dTogglePar" style="margin-top:12px;font-size:12px">Show each parent's sparks ▾</button>
     <div id="dPar" class="hide" style="margin-top:8px">${pdet}</div>
     `;
@@ -2707,24 +2719,6 @@ function sparkOddsGrid(odds, mode){
   }).join('');
 }
 
-function inheritGrid(items){
-  if(!items || !items.length) return '<span class="muted">No white-skill factors in this lineage</span>';
-  const tierMeta = {white:{lbl:'white',col:'var(--mut)'},circle:{lbl:'○ circle',col:'#7fd0ff'},gold:{lbl:'gold',col:'gold'}};
-  return items.map(s=>{
-    const t = tierMeta[s.tier]||tierMeta.white;
-    const barColor = s.ge1_pct >= 50 ? 'var(--ok)' : s.ge1_pct >= 30 ? 'var(--accent)' : 'var(--mut)';
-    const oddsHi = _isBreedMatch(s.name);
-    const hiStyle = oddsHi ? 'background:rgba(218,165,32,0.12);border-radius:4px' : '';
-    const hiName = oddsHi ? 'color:#f0d060;font-weight:600' : '';
-    const tierBadge = `<span style="font-size:9px;color:${t.col};border:1px solid ${t.col};border-radius:4px;padding:0 5px;margin-left:6px">${t.lbl}</span>`;
-    const copiesBadge = `<span style="font-size:10px;color:var(--mut);margin-left:6px">×${s.copies} in lineage</span>`;
-    return `<div class="odds-row" style="${hiStyle}">
-      <div class="odds-name" style="${hiName}">${esc(s.name)}${tierBadge}${copiesBadge}</div>
-      <div class="odds-val" style="color:${barColor}" title="${s.base_pct}% × 1.1^${s.copies} copies">${s.ge1_pct}%</div>
-    </div>`;
-  }).join('');
-}
-
 function lineageTree(d){
   const ia = d.individual_affinities || {};
   const tc = d.target_card || 0;
@@ -2813,11 +2807,10 @@ function openPairDetail(d){
   const hasOdds = d.spark_odds && (d.spark_odds.full_run || d.spark_odds.first_only);
   const oddsPanel = hasOdds ? `
     <div class="seclab" style="display:flex;justify-content:space-between;align-items:center">
-      <span id="oddsTitle">Expected Inspiration Proc Odds</span>
+      <span>Expected Inspiration Proc Odds</span>
       <div class="odds-toggle">
         <button class="odds-btn active" data-mode="full_run">Full run (2 events)</button>
         <button class="odds-btn ghost" data-mode="first_only">First inspiration only</button>
-        <button class="odds-btn ghost" data-mode="inheritance">Inheritance</button>
       </div>
     </div>
     <div class="odds-grid" id="oddsGrid">${sparkOddsGrid(d.spark_odds, 'full_run')}</div>` : '';
@@ -2841,17 +2834,8 @@ function openPairDetail(d){
       btn.onclick=()=>{
         $$('.odds-btn').forEach(b=>{b.classList.remove('active');b.classList.add('ghost');});
         btn.classList.add('active');btn.classList.remove('ghost');
-        const m=btn.dataset.mode;
-        if(m==='inheritance'){
-          $('#oddsTitle').textContent='Inheritance Odds (at graduation)';
-          $('#oddsGrid').classList.add('inherit');
-          $('#oddsGrid').innerHTML = inheritGrid((d.spark_odds||{}).inheritance||[]);
-        } else {
-          $('#oddsTitle').textContent='Expected Inspiration Proc Odds';
-          $('#oddsGrid').classList.remove('inherit');
-          $('#oddsGrid').innerHTML = sparkOddsGrid(d.spark_odds, m);
-          _bindOddsExpand();
-        }
+        $('#oddsGrid').innerHTML = sparkOddsGrid(d.spark_odds, btn.dataset.mode);
+        _bindOddsExpand();
       };
     });
     _bindOddsExpand();
