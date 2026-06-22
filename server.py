@@ -2046,61 +2046,107 @@ def api_db_export():
 
 
 @app.post("/api/db/import")
-async def api_db_import(file: UploadFile = File(...)):
-    """Merge another Heaven's export into this one. Dedups so nothing is lost or
-    duplicated; returns how many rows were added vs skipped as already-known."""
-    try:
-        raw = await file.read()
-        bundle = json.loads(raw.decode("utf-8", errors="replace"))
-    except Exception as e:
-        return JSONResponse({"error": f"could not read file: {e}"}, status_code=400)
-    if not isinstance(bundle, dict) or ("tt" not in bundle and "stadium" not in bundle):
-        return JSONResponse({"error": "not a Heaven data export"}, status_code=400)
+async def api_db_import(files: list[UploadFile] = File(...)):
+    """Merge data from one or MANY files into this dashboard. Each upload is
+    auto-detected and routed:
+      * a Heaven export bundle (has `tt` / `stadium` keys), or
+      * a raw horseACT / TeamStadiumResult Team Trials dump (ayaliz/horseACT,
+        Hakuraku, or Heaven's own `heaven-races/Team trials/TT-*.json`).
+    Dedups so nothing is lost or duplicated; returns per-format counts + any
+    per-file errors. Accepts the whole drop of horseACT files in one go."""
+    import horseact_import
+
+    if not files:
+        return JSONResponse({"error": "no files uploaded"}, status_code=400)
+
+    # Parse every upload first; only bail if NONE are readable.
+    parsed: list[tuple[str, dict]] = []
+    errors: list[str] = []
+    for f in files:
+        try:
+            raw = await f.read()
+            doc = json.loads(raw.decode("utf-8", errors="replace"))
+        except Exception as e:
+            errors.append(f"{f.filename}: could not read ({e})")
+            continue
+        parsed.append((f.filename or "upload", doc))
+    if not parsed:
+        return JSONResponse({"error": "no readable JSON files", "errors": errors}, status_code=400)
 
     # Safety net: snapshot current data before merging (rolling single backup).
     _backup_db()
-
-    # ── Team Trials history (dedup by trial·race·horse) ──
-    tt_in = bundle.get("tt") or []
-    seen = {_tt_key(r) for r in _read_jsonl_list(skill_planner.HISTORY_PATH)}
-    tt_added = tt_dupes = 0
     skill_planner.HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _tt_new = []
-    for r in tt_in:
-        if not isinstance(r, dict):
-            continue
-        k = _tt_key(r)
-        if k in seen:
-            tt_dupes += 1
-            continue
-        seen.add(k)
-        _tt_new.append(r)
-        tt_added += 1
-    jsonl_util.append_jsonl(skill_planner.HISTORY_PATH, _tt_new)
-
-    # ── Stadium observations (dedup by packet_key) ──
-    st_in = bundle.get("stadium") or []
-    st_seen = stadium_tracker._load_seen_keys()
-    st_added = st_dupes = 0
     stadium_tracker.OBSERVATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _st_new = []
-    for r in st_in:
-        if not isinstance(r, dict):
-            continue
-        k = r.get("packet_key")
-        if not k or k in st_seen:
-            st_dupes += 1
-            continue
-        st_seen.add(k)
-        _st_new.append(r)
-        st_added += 1
+
+    seen = {_tt_key(r) for r in _read_jsonl_list(skill_planner.HISTORY_PATH)}
+    st_seen = stadium_tracker._load_seen_keys()
+    tt_added = tt_dupes = st_added = st_dupes = 0
+    bundles = horseact_files = unknown = 0
+    _tt_new: list[dict] = []
+    _st_new: list[dict] = []
+    horseact_stadium: list[dict] = []
+
+    def _merge_tt(rows):
+        nonlocal tt_added, tt_dupes
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            k = _tt_key(r)
+            if k in seen:
+                tt_dupes += 1
+                continue
+            seen.add(k)
+            _tt_new.append(r)
+            tt_added += 1
+
+    def _merge_stadium(rows):
+        nonlocal st_added, st_dupes
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            k = r.get("packet_key")
+            if not k or k in st_seen:
+                st_dupes += 1
+                continue
+            st_seen.add(k)
+            _st_new.append(r)
+            st_added += 1
+
+    for name, doc in parsed:
+        if isinstance(doc, dict) and ("tt" in doc or "stadium" in doc):
+            bundles += 1
+            _merge_tt(doc.get("tt") or [])
+            _merge_stadium(doc.get("stadium") or [])
+        elif horseact_import.is_horseact(doc):
+            horseact_files += 1
+            try:
+                _merge_tt(horseact_import.rows_from_doc(doc, name))
+                horseact_stadium.extend(horseact_import.stadium_payloads_from_doc(doc))
+            except Exception as e:
+                errors.append(f"{name}: horseACT parse failed ({e})")
+        else:
+            unknown += 1
+            errors.append(f"{name}: not a Heaven export or horseACT TT dump")
+
+    jsonl_util.append_jsonl(skill_planner.HISTORY_PATH, _tt_new)
     jsonl_util.append_jsonl(stadium_tracker.OBSERVATIONS_PATH, _st_new)
+
+    # horseACT stadium observations go through stadium_tracker's own ingest, which
+    # builds the packet_keys + dedups internally (same path the native importer uses).
+    if horseact_stadium:
+        try:
+            st_added += stadium_tracker.ingest_payloads(horseact_stadium, my_viewer_id=1)
+        except Exception as e:
+            errors.append(f"stadium ingest failed ({e})")
 
     _ACT_CACHE.clear()  # recompute activation% with the merged data
     return {
         "ok": True, "backup": True,
         "tt_added": tt_added, "tt_dupes": tt_dupes,
         "stadium_added": st_added, "stadium_dupes": st_dupes,
+        "files": len(parsed), "bundles": bundles,
+        "horseact": horseact_files, "unknown": unknown,
+        "errors": errors,
     }
 
 
