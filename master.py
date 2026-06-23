@@ -12,6 +12,9 @@ from functools import lru_cache
 _MDB_GLOBS = [
     r"%LOCALAPPDATA%/../LocalLow/Cygames/Umamusume/master/master.mdb",
     r"%USERPROFILE%/AppData/LocalLow/Cygames/Umamusume/master/master.mdb",
+    r"$HOME/.local/share/Steam/steamapps/compatdata/3224770/pfx/drive_c/users/steamuser/AppData/LocalLow/Cygames/Umamusume/master/master.mdb",
+    r"$HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/3224770/pfx/drive_c/users/steamuser/AppData/LocalLow/Cygames/Umamusume/master/master.mdb",
+    r"$HOME/.steam/*/steamapps/compatdata/3224770/pfx/drive_c/users/steamuser/AppData/LocalLow/Cygames/Umamusume/master/master.mdb",
 ]
 
 
