@@ -40,6 +40,10 @@ SEEN_PATH = _DATA_DIR / "race_skill_seen.txt"
 # Imported community exports land here (one .jsonl per shared file). They're
 # merged into the pool and deduped by (race_id, chara_id) at load time.
 COMMUNITY_DIR = _DATA_DIR / "race_skill_community"
+# A community seed shipped IN the repo (so everyone gets it on update). It's
+# merged into the pool deduped by (race_id, chara_id) — it ADDS to your own
+# data, never replaces it (and is a no-op for whoever contributed it).
+SEED_PATH = Path(__file__).parent / "seed" / "community_skill_seed.jsonl"
 
 B = ">k__BackingField"
 _RS = {1: "NIGE", 2: "SENKO", 3: "SASHI", 4: "OIKOMI"}
@@ -231,7 +235,7 @@ def load_rows() -> list[dict]:
     people or re-imports)."""
     out: list[dict] = []
     seen: set = set()
-    paths = [ROWS_PATH]
+    paths = [ROWS_PATH, SEED_PATH]          # your own first, then the bundled seed
     if COMMUNITY_DIR.exists():
         paths += sorted(COMMUNITY_DIR.glob("*.jsonl"))
     for p in paths:
