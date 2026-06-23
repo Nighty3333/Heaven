@@ -1,5 +1,7 @@
 # Heaven
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/SpCGcXMeFt)
+
 Local dashboard for Uma Musume: **breeding optimizer**, **Team Trials analyzer**,
 **skill planner** and **stadium tracker**. Runs as a small web
 app on your own machine.
