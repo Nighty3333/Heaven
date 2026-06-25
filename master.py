@@ -34,7 +34,7 @@ def _conn():
     args, _unknown = parser.parse_known_args()
     path = args.master_mdb_path or find_mdb()
     if not path:
-        raise FileNotFoundError("No encuentro master.mdb (Umamusume no instalado en este equipo?)")
+        raise FileNotFoundError("Could not find master.mdb (is Umamusume installed on this machine?)")
     return sqlite3.connect(path, check_same_thread=False)
 
 
@@ -124,7 +124,7 @@ def relation_points():
 
 @lru_cache(maxsize=1)
 def chara_relation_types():
-    """chara_id -> set(relation_type)  (inverso de relation_members, para velocidad)."""
+    """chara_id -> set(relation_type)  (inverse of relation_members, for speed)."""
     out = {}
     for rtype, members in relation_members().items():
         for c in members:

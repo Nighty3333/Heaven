@@ -1,11 +1,11 @@
 """
-Afinidad / compatibilidad (相性) de herencia — formula EXACTA confirmada via Frida hooks.
+Inheritance affinity / compatibility (相性) — EXACT formula confirmed via Frida hooks.
 
 Formula:
   CalcRelationPoint(trainee, p1, p2) =
       CR(t, p1) + CR(t, p2) + RL2(p1, p2) + WSB(p1) + WSB(p2)
 
-  Donde:
+  Where:
     CR(t, p) = RL2(t, p_chara) + RL3(t, p_chara, gp1_chara) + RL3(t, p_chara, gp2_chara)
     RL2(a, b) = sum(relation_point for shared relation_types between a and b)
     RL3(a, b, c) = RL2(a, b) filtered by relation_types that ALSO include c
@@ -14,9 +14,9 @@ Formula:
                 Computed OFFLINE from the parent's and its GPs' win_saddle_id_array.
                 Confirmed 261/261 exact match against the game's GetWinSaddleRelationBonus.
 
-  Nota: RL2(t, p_chara) NO se calcula para trainee consigo mismo.
-        El trainee es fresco (sin victorias), asi que WSB(trainee) = 0.
-        El cross-term RL2(p1, p2) es solo base (sin GPs).
+  Note: RL2(t, p_chara) is NOT computed for the trainee against itself.
+        The trainee is fresh (no wins), so WSB(trainee) = 0.
+        The cross-term RL2(p1, p2) is base only (no GPs).
 """
 
 import master
@@ -100,13 +100,13 @@ def wsb_from_parsed(uma: dict) -> int:
 
 def compatibility(trainee_chara: int, p1: dict, p2: dict,
                   wsb_p1: int | None = None, wsb_p2: int | None = None) -> dict:
-    """Calcula affinity exacta.
+    """Compute exact affinity.
 
     Args:
-        trainee_chara: chara_id del trainee (e.g. 1006 = Oguri Cap)
-        p1, p2: dicts con al menos:
-            - chara_id: int (chara del parent)
-            - gp_charas: list[int] (chara_ids de los 2 GPs, puede estar vacio)
+        trainee_chara: trainee chara_id (e.g. 1006 = Oguri Cap)
+        p1, p2: dicts with at least:
+            - chara_id: int (parent's chara)
+            - gp_charas: list[int] (chara_ids of the 2 GPs, may be empty)
         wsb_p1, wsb_p2: WSB values (None = unknown, will show as 0)
 
     Returns dict with full breakdown.
@@ -125,7 +125,7 @@ def compatibility(trainee_chara: int, p1: dict, p2: dict,
 
     total = cr1 + cr2 + cross + w1 + w2
 
-    # Breakdown por parent
+    # Breakdown per parent
     base1 = rl2(trainee_chara, c1)
     base2 = rl2(trainee_chara, c2)
     gp_bonus1 = cr1 - base1

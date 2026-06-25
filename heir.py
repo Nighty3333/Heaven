@@ -299,7 +299,7 @@ def score_for_want(c, want_lower):
 
 
 def spark_richness(c):
-    """Generico: estrellas azul+rosa (propias 1.0 + abuelos 0.4)."""
+    """Generic: blue+pink stars (own 1.0 + grandparents 0.4)."""
     def m(sparks, w):
         return sum(sp["stars"] * w for sp in sparks if sp["type"] in ("blue", "pink"))
     s = m(c["own_sparks"], 1.0)
@@ -499,7 +499,7 @@ def expected_proc_score(p1: dict, p2: dict, target_card: int,
 
 
 def all_spark_names(ds):
-    """Nombres unicos de spark por tipo (para autocompletado/desplegables en la UI).
+    """Unique spark names per type (for autocomplete/dropdowns in the UI).
     Scenario sparks (TS Climax, etc.) are bucketed under 'white' since they are
     white-type in the inheritance sense."""
     buckets = {"blue": set(), "pink": set(), "green": set(), "white": set()}
@@ -585,7 +585,7 @@ def optimize_breed(ds, target, want, w_affinity=2.0, w_spark=1.0,
                    own_pool=60, rent_pool=40, top=15, allowed_ids=None,
                    skill_weights=None, use_eproc=True,
                    apt_label=None, apt_base_grade=1, apt_min_grade=None):
-    """Devuelve {own:[...], rental:[...]} con las mejores parejas.
+    """Return {own:[...], rental:[...]} with the best pairs.
 
     When use_eproc=True (default), uses the expected-proc model:
         obj = eproc (sum of P(>=1) for wanted sparks) + eblue × 0.5
@@ -602,8 +602,8 @@ def optimize_breed(ds, target, want, w_affinity=2.0, w_spark=1.0,
         mine = [c for c in mine if c["trained_chara_id"] in allowed]
     rentable = ds["rentable"]
 
-    # los 2 padres NO pueden ser el mismo personaje (regla del juego)
-    # y ningún padre puede ser el mismo personaje que el target
+    # the 2 parents CANNOT be the same character (game rule)
+    # and no parent can be the same character as the target
     chid = {id(c): master.chara_id_of(c["card_id"]) for c in mine + rentable}
     target_ch = master.chara_id_of(target)
     mine = [c for c in mine if chid[id(c)] != target_ch]
@@ -721,20 +721,20 @@ def cmd_scan(args):
     ds = _get_dataset(args, fmap)
     if ds is None:
         return 1
-    print(f"[+] Tus umas: {len(ds['mine'])}  |  Padres prestables: {len(ds['rentable'])}")
+    print(f"[+] Your umas: {len(ds['mine'])}  |  Lendable parents: {len(ds['rentable'])}")
     OUT_PATH.write_text(json.dumps(ds, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[+] Volcado completo en {OUT_PATH}")
+    print(f"[+] Full dump written to {OUT_PATH}")
 
     if ds["mine"]:
         blue, pink, white = spark_summary(ds["mine"])
-        print("\n=== INVENTARIO DE SPARKS (tus umas, propios) ===")
-        print("Azules (stat):", dict(blue.most_common()))
-        print("Rosas (aptitud) top10:", [(ascii_safe(k), v) for k, v in pink.most_common(10)])
-        print("Blancos (skill) top10:", [(ascii_safe(k), v) for k, v in white.most_common(10)])
-        print("\n=== TUS UMAS top10 por estrellas de spark propias ===")
+        print("\n=== SPARK INVENTORY (your umas, own) ===")
+        print("Blue (stat):", dict(blue.most_common()))
+        print("Pink (aptitude) top10:", [(ascii_safe(k), v) for k, v in pink.most_common(10)])
+        print("White (skill) top10:", [(ascii_safe(k), v) for k, v in white.most_common(10)])
+        print("\n=== YOUR UMAS top10 by own spark stars ===")
         for c in sorted(ds["mine"], key=total_own_stars, reverse=True)[:10]:
             blues = [f"{ascii_safe(sp['name'])}*{sp['stars']}" for sp in c["own_sparks"] if sp["type"] == "blue"]
-            print(f"  {ascii_safe(c['name']):20s} rank {c['rank']} | {total_own_stars(c)} estrellas | azul: {blues}")
+            print(f"  {ascii_safe(c['name']):20s} rank {c['rank']} | {total_own_stars(c)} stars | blue: {blues}")
     return 0
 
 
@@ -748,13 +748,13 @@ def cmd_breed(args):
     want_lower = {w.lower() for w in want}
     mine, rentable = ds["mine"], ds["rentable"]
     if not mine:
-        print("[-] No hay umas tuyas en los datos.")
+        print("[-] No umas of your own in the data.")
         return 1
 
-    print(f"[*] Criar: {ascii_safe(master.card_name(target))} (card {target})")
-    print(f"[*] Objetivo de sparks: {want or '(generico: riqueza de sparks)'}")
-    print(f"[*] Pool: {len(mine)} tuyas, {len(rentable)} prestables")
-    print(f"[*] Pesos: afinidad x{args.w_affinity}, spark x{args.w_spark}\n")
+    print(f"[*] Breed: {ascii_safe(master.card_name(target))} (card {target})")
+    print(f"[*] Target sparks: {want or '(generic: spark richness)'}")
+    print(f"[*] Pool: {len(mine)} yours, {len(rentable)} lendable")
+    print(f"[*] Weights: affinity x{args.w_affinity}, spark x{args.w_spark}\n")
 
     apt_label = (getattr(args, "apt", "") or "").strip() or None
     apt_base_grade, apt_min_grade = 1, None
@@ -762,7 +762,7 @@ def cmd_breed(args):
         apt_base_grade = master.card_base_aptitudes(target).get(apt_label) or 1
         _gn = {v: k for k, v in APT_GRADE.items()}
         apt_min_grade = _gn.get((getattr(args, "apt_grade", "A") or "A").upper(), 7)
-        print(f"[*] Aptitud: alcanzar {apt_label} >= {getattr(args,'apt_grade','A')} "
+        print(f"[*] Aptitude: reach {apt_label} >= {getattr(args,'apt_grade','A')} "
               f"(base {APT_GRADE.get(apt_base_grade,'?')})")
     res = optimize_breed(ds, target, want, args.w_affinity, args.w_spark, top=8,
                          use_eproc=not getattr(args, "no_eproc", False),
@@ -776,12 +776,12 @@ def cmd_breed(args):
             print(f"  obj {cb['obj']:6.1f} | afin {cb['affinity']:>3} | spark {cb['spark']:4.1f}")
             print(f"      P1 {ascii_safe(cb['p1']['name']):18s} (r{cb['p1']['rank']})  +  "
                   f"P2 {ascii_safe(cb['p2']['name']):18s} (r{cb['p2']['rank']}){own}")
-            print(f"      stat azul heredado: {cb['blue']}")
+            print(f"      inherited blue stat: {cb['blue']}")
         print()
 
-    show(res["own"], "PAREJAS 100% TUYAS")
+    show(res["own"], "100% YOUR-OWN PAIRS")
     if res["rental"]:
-        show(res["rental"], "TUYA + PADRE PRESTABLE (slot rental)")
+        show(res["rental"], "YOURS + LENDABLE PARENT (rental slot)")
     return 0
 
 

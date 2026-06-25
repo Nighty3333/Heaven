@@ -541,7 +541,7 @@ def uma_ui(c, notes, src="mine"):
                 if sp["name"] not in chain_whites:
                     chain_white_stars += sp["stars"]
                 chain_whites.add(sp["name"])
-    # linaje de sparks BLANCAS + scenario (propias depth 0, padres depth 1, abuelos depth 2)
+    # lineage of WHITE sparks + scenario (own depth 0, parents depth 1, grandparents depth 2)
     # for the lineage filter; scenarios (TS Climax, etc) are bucketed under white.
     lineage_white = [{"name": sp["name"], "stars": sp["stars"], "depth": 0}
                      for sp in c["own_sparks"] if sp["type"] in ("white", "scenario")]
@@ -551,8 +551,8 @@ def uma_ui(c, notes, src="mine"):
             if sp["type"] in ("white", "scenario"):
                 lineage_white.append({"name": sp["name"], "stars": sp["stars"], "depth": d})
 
-    # AGREGADO por factor para herencia: SOLO trainee (own) + los 2 padres (pos 10/20).
-    # Los abuelos NO cuentan para el total de herencia.
+    # AGGREGATED per factor for inheritance: ONLY trainee (own) + the 2 parents (pos 10/20).
+    # Grandparents do NOT count toward the inheritance total.
     agg = {}
     def _add(sp, slot):
         a = agg.setdefault(sp["name"], {"name": sp["name"], "type": sp["type"],
@@ -1002,7 +1002,7 @@ def race_icon(tid: int):
 def api_data():
     ds = ensure_dataset()
     notes = load_notes()
-    # umas objetivo: nombres unicos (de tu pool + prestables) para el desplegable
+    # target umas: unique names (from your pool + lendable) for the dropdown
     targets = {}
     for c in ds["mine"] + ds["rentable"]:
         if c["card_id"] not in targets:
@@ -1314,7 +1314,7 @@ def api_pair(req: PairReq):
         return JSONResponse({"error": "parent not found"}, status_code=404)
     import affinity as _aff
     comp = _aff.compatibility_from_parsed(req.target, p1, p2)
-    # factores combinados que hereda la cria = sparks propios de los 2 padres
+    # combined factors the foal inherits = own sparks of the 2 parents
     agg = {}
     for c, slot in ((p1, "p1"), (p2, "p2")):
         for sp in c["own_sparks"]:
@@ -1500,10 +1500,10 @@ def _capture_worker():
         import frida
         import time as _time
     except ImportError:
-        _set_step("error", "frida no instalado: pip install frida")
+        _set_step("error", "frida not installed: pip install frida")
         return
 
-    _set_step("capturing", "Lanzando Umamusume via Steam...")
+    _set_step("capturing", "Launching Umamusume via Steam...")
     fetch_mod.launch_game()
 
     captured = {}
@@ -1517,10 +1517,10 @@ def _capture_worker():
 
     deadline = _time.time() + 240
     session = None
-    _set_step("capturing", "Esperando al juego... (logueate y entra al menu principal)")
+    _set_step("capturing", "Waiting for the game... (log in and reach the main menu)")
     while _time.time() < deadline:
         if SETUP_STATE["_cancel"]:
-            _set_step("idle", "Captura cancelada")
+            _set_step("idle", "Capture cancelled")
             return
         try:
             session = frida.attach(fetch_mod.PROCESS_NAME)
@@ -1529,12 +1529,12 @@ def _capture_worker():
             _time.sleep(1)
 
     if not session:
-        _set_step("error", f"Timeout esperando a {fetch_mod.PROCESS_NAME}")
+        _set_step("error", f"Timeout waiting for {fetch_mod.PROCESS_NAME}")
         return
 
     with SETUP_LOCK:
         SETUP_STATE["_session"] = session
-    _set_step("capturing", "Frida attached. Cuando llegues al home con tus umas, capturo y sigo.")
+    _set_step("capturing", "Frida attached. When you reach the home screen with your umas, I'll capture and continue.")
 
     try:
         script = session.create_script(fetch_mod.FRIDA_JS)
@@ -1542,17 +1542,17 @@ def _capture_worker():
         script.load()
         while _time.time() < deadline:
             if SETUP_STATE["_cancel"]:
-                _set_step("idle", "Captura cancelada")
+                _set_step("idle", "Capture cancelled")
                 return
             if fetch_mod.fresh_auth(captured):
                 _time.sleep(1)
                 with SETUP_LOCK:
                     SETUP_STATE["captured"] = dict(captured)
                     SETUP_STATE["viewer_id"] = captured.get("viewer_id")
-                _set_step("captured", f"Credenciales OK (viewer_id={captured.get('viewer_id')}). Introduce ahora tu cuenta Steam.")
+                _set_step("captured", f"Credentials OK (viewer_id={captured.get('viewer_id')}). Now enter your Steam account.")
                 return
             _time.sleep(0.5)
-        _set_step("error", "Timeout sin capturar credenciales validas.")
+        _set_step("error", "Timed out without capturing valid credentials.")
     except Exception as e:
         _set_step("error", f"Frida error: {e}")
     finally:
@@ -1565,7 +1565,7 @@ def _capture_worker():
 @app.post("/api/setup/start_capture")
 def setup_start_capture():
     if _has_auth():
-        return JSONResponse({"error": "auth ya guardado, salta directo al fetch"}, status_code=400)
+        return JSONResponse({"error": "auth already saved, skip straight to fetch"}, status_code=400)
     with SETUP_LOCK:
         if SETUP_STATE["step"] in ("capturing", "fetching"):
             return {"ok": True, "step": SETUP_STATE["step"], "message": SETUP_STATE["message"]}
@@ -1599,7 +1599,7 @@ def _fetch_worker(username, password, code):
             cfg = dict(captured)
             cfg.update(fetch_mod.get_hwid())
         if not cfg:
-            _set_step("error", "Sin auth (ni guardado ni capturado).")
+            _set_step("error", "No auth (neither saved nor captured).")
             return
 
         if username:
@@ -1607,15 +1607,15 @@ def _fetch_worker(username, password, code):
         if password:
             cfg["steam_password"] = password
         if not cfg.get("steam_username") or not cfg.get("steam_password"):
-            _set_step("error", "Faltan credenciales de Steam.")
+            _set_step("error", "Missing Steam credentials.")
             return
 
-        _set_step("fetching", "Generando Steam ticket...")
+        _set_step("fetching", "Generating Steam ticket...")
         try:
             sid, tkt = fetch_mod.get_steam_ticket(cfg["steam_username"], cfg["steam_password"], code)
         except RuntimeError as e:
             if "STEAM_GUARD_REQUIRED" in str(e):
-                _set_step("captured", "Steam Guard necesario. Vuelve a enviar el form con el codigo 2FA.")
+                _set_step("captured", "Steam Guard required. Resubmit the form with your 2FA code.")
                 return
             _set_step("error", f"Steam: {e}")
             return
@@ -1623,10 +1623,10 @@ def _fetch_worker(username, password, code):
         cfg["steam_session_ticket"] = tkt
         fetch_mod.save_auth(cfg)
 
-        _set_step("fetching", "Login al servidor del juego...")
+        _set_step("fetching", "Logging in to the game server...")
         client = fetch_mod.UmaClient(cfg)
         load_res = client.login()
-        _set_step("fetching", "Pidiendo padres prestables...")
+        _set_step("fetching", "Requesting lendable parents...")
         pre_res = client.pre_single_mode()
 
         out = fetch_mod.write_trace(load_res, pre_res)
@@ -1638,7 +1638,7 @@ def _fetch_worker(username, password, code):
             SETUP_STATE["mine"] = mine
             SETUP_STATE["rentable"] = rent
             SETUP_STATE["viewer_id"] = cfg.get("viewer_id")
-        _set_step("done", f"{mine} umas tuyas + {rent} padres prestables. Trace: {out.name}")
+        _set_step("done", f"{mine} of your umas + {rent} lendable parents. Trace: {out.name}")
     except Exception as e:
         _set_step("error", f"{e}\n{traceback.format_exc()[-300:]}")
 

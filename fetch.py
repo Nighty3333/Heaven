@@ -214,12 +214,12 @@ client.on("loggedOn", () => {
 
 def get_steam_ticket(username, password, code=""):
     if not shutil.which("node"):
-        raise RuntimeError("Node.js no instalado. Descargalo de https://nodejs.org")
+        raise RuntimeError("Node.js not installed. Download it from https://nodejs.org")
     if not (ROOT / "node_modules").exists():
         npm = shutil.which("npm") or shutil.which("npm.cmd")
         if not npm:
-            raise RuntimeError("npm no encontrado. Ejecuta 'npm install' en la carpeta de Heir")
-        print("[*] Instalando steam-user (npm install)...", flush=True)
+            raise RuntimeError("npm not found. Run 'npm install' in the Heir folder")
+        print("[*] Installing steam-user (npm install)...", flush=True)
         subprocess.run([npm, "install", "--silent"], check=True, cwd=str(ROOT), shell=False)
     # node -e consumes the first arg after `--`, so put a dummy there first
     cmd = ["node", "-e", TICKET_JS, "--", "--dummy", "--username", username, "--password", password]
@@ -566,13 +566,13 @@ def save_auth(cfg):
 
 def launch_game():
     if os.name != "nt":
-        print("[-] Lanzar el juego solo soportado en Windows.")
+        print("[-] Launching the game is only supported on Windows.")
         return False
     try:
         os.startfile(f"steam://rungameid/{APP_ID}")
         return True
     except Exception as e:
-        print(f"[-] No se pudo lanzar el juego: {e}")
+        print(f"[-] Could not launch the game: {e}")
         return False
 
 
@@ -580,12 +580,12 @@ def capture_auth(timeout_sec=240):
     try:
         import frida
     except ImportError:
-        raise RuntimeError("frida no instalado: pip install frida")
+        raise RuntimeError("frida not installed: pip install frida")
 
-    print("[*] Lanzando Umamusume via Steam...", flush=True)
+    print("[*] Launching Umamusume via Steam...", flush=True)
     launch_game()
-    print(f"[*] Esperando hasta {timeout_sec}s. Loguéate y entra al menú principal.\n"
-          f"    (cuando veas tu home con tus umas, ya estará capturado)", flush=True)
+    print(f"[*] Waiting up to {timeout_sec}s. Log in and reach the main menu.\n"
+          f"    (once you see your home screen with your umas, it's captured)", flush=True)
 
     captured = {}
     session = None
@@ -608,7 +608,7 @@ def capture_auth(timeout_sec=240):
         except Exception:
             time.sleep(1)
     if not session:
-        raise RuntimeError(f"Timeout esperando a {PROCESS_NAME}")
+        raise RuntimeError(f"Timeout waiting for {PROCESS_NAME}")
 
     script = session.create_script(FRIDA_JS)
     script.on("message", on_msg)
@@ -625,7 +625,7 @@ def capture_auth(timeout_sec=240):
             session.detach()
         except Exception:
             pass
-    raise RuntimeError("Timeout sin capturar credenciales válidas.")
+    raise RuntimeError("Timed out without capturing valid credentials.")
 
 
 def write_trace(load_res, pre_res):
@@ -655,24 +655,24 @@ def main():
     cfg = load_saved_auth()
 
     if cfg is None:
-        print("[*] Sin auth_config.json. Primera captura — necesito que abras el juego.\n")
+        print("[*] No auth_config.json. First capture — I need you to open the game.\n")
         captured = capture_auth()
         cfg = dict(captured)
         cfg.update(get_hwid())
 
-        print("\n[*] Captura OK. Ahora Steam:")
-        print("    Las credenciales se guardan obfuscadas en auth_config.json (LOCAL, NO subir al repo).")
+        print("\n[*] Capture OK. Now Steam:")
+        print("    Credentials are saved obfuscated in auth_config.json (LOCAL, do NOT commit to the repo).")
         cfg["steam_username"] = input("    Steam username: ").strip()
         cfg["steam_password"] = input("    Steam password: ")
 
         save_auth(cfg)
-        print(f"[+] Guardado {AUTH_PATH.name}\n")
+        print(f"[+] Saved {AUTH_PATH.name}\n")
     else:
-        print(f"[+] auth_config.json encontrado (viewer_id={cfg['viewer_id']})")
+        print(f"[+] auth_config.json found (viewer_id={cfg['viewer_id']})")
         if "device_id" not in cfg:
             cfg.update(get_hwid())
 
-    print("[*] Generando Steam session ticket...")
+    print("[*] Generating Steam session ticket...")
     user = cfg.get("steam_username")
     pwd = cfg.get("steam_password")
     if not user or not pwd:
@@ -693,7 +693,7 @@ def main():
     save_auth(cfg)
     print(f"[+] Ticket OK (steam_id={sid})")
 
-    print("[*] Login al servidor del juego...")
+    print("[*] Logging in to the game server...")
     client = UmaClient(cfg)
     load_res = client.login()
     print("[+] load/index OK")
@@ -704,9 +704,9 @@ def main():
     mine = len((load_res.get("data") or {}).get("trained_chara") or [])
     rent = len(((pre_res.get("data") or {}).get("succession_trained_chara_data") or {})
                .get("succession_trained_chara_array") or [])
-    print(f"\n[+] Trace escrito: {out.relative_to(ROOT)}")
-    print(f"    {mine} umas tuyas + {rent} padres prestables")
-    print(f"\nAhora puedes:  python server.py   (UI en http://localhost:1620)")
+    print(f"\n[+] Trace written: {out.relative_to(ROOT)}")
+    print(f"    {mine} of your umas + {rent} lendable parents")
+    print(f"\nNow you can:  python server.py   (UI at http://localhost:1620)")
 
 
 if __name__ == "__main__":
