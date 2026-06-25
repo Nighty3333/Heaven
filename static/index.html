@@ -2439,16 +2439,16 @@ function showTab(name){
   const panels = ['inv','breed','tt-overview','tt-planner','tt-lookup','tt-stadium'];
   panels.forEach(p=>{ const el=$('#'+p); if(el) el.classList.toggle('hide',p!==name); });
   if(name==='tt-overview' && !TT_LOADED){
-    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats();
+    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats(); ttLoadRetrains();
   }
   if(name==='tt-planner' && !TT_LOADED){
-    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats();
+    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats(); ttLoadRetrains();
   }
   if(name==='tt-lookup' && !TT_LOADED){
-    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats();
+    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats(); ttLoadRetrains();
   }
   if(name==='tt-stadium' && !TT_LOADED){
-    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats();
+    TT_LOADED=true; ttLoad(); ttLoadStadium(); ttLoadPlannerOptions(); ttLoadSkillList(); slLoadPoolStats(); ttLoadRetrains();
   }
 }
 function refreshTagSelects(){
@@ -3377,6 +3377,7 @@ $('#kofiBannerClose')?.addEventListener('click', ()=>{
 // ============================================================
 let TT_LOADED = false;
 let TT_DATA = null;
+let TT_RETRAINS = {};   // card_id -> {name, versions[]} for the re-train compare dropdown
 let TT_SORT_KEY = 'avg_score';
 let TT_SORT_DIR = -1;
 let TT_STADIUM_DATA = null;
@@ -3455,6 +3456,74 @@ async function ttLoadPlayer(){
   }catch(e){}
 }
 
+async function ttLoadRetrains(){
+  // Load the per-character version data into TT_RETRAINS (keyed by card_id) so
+  // ttRender can show a "▾ N versions" dropdown on each re-trained uma's row.
+  try{
+    const r=await fetch('/api/team/retrains'); if(!r.ok) throw 0;
+    const data=await r.json();
+    const map={};
+    (data.characters||[]).forEach(c=>{ map[c.card_id]=c; });
+    TT_RETRAINS=map;
+  }catch(e){ TT_RETRAINS={}; }
+  if(TT_DATA) ttRender();   // re-render so the dropdowns appear
+}
+// Inline comparison panel for one character's re-trained versions (shown under
+// its Race Analysis row when the "▾ N versions" dropdown is clicked).
+function _ttComparePanelHTML(cid){
+  const c=TT_RETRAINS[cid]; if(!c) return '';
+  const vs=c.versions, oldest=vs[0], newest=vs[vs.length-1];
+  const fmt=n=>(n||0).toLocaleString();
+  const pct=(a,b)=>{ if(!b) return ''; const d=(a-b)/b*100; return `<b style="color:${d>=0?'var(--ok)':'#ff6e7e'}">${d>=0?'+':''}${d.toFixed(1)}%</b>`; };
+  const cvCol=v=>v>=20?'#ff6e7e':(v>=15?'#ffce4d':'var(--ok)');
+  const actCol=v=>v>=80?'var(--ok)':(v>=60?'':'color:#ff6e7e');
+  const LOW=10;                                   // <10 runs = noisy sample
+  const maxAvg=Math.max(...vs.map(v=>v.avg||0));
+  const rows=vs.map((v,i)=>{
+    const bd=Object.entries(v.by_distance||{}).map(([k,d])=>`${k} ${fmt(d.avg)} (${d.runs})`).join(', ');
+    const tag=v.newest?'<span style="color:var(--ok);font-weight:700">Newest</span>':(i===0?'<span class="muted">Oldest</span>':'v'+(i+1));
+    const low=(v.runs||0)<LOW;
+    const warn=low?' <span title="Small sample — these numbers are noisy" style="color:#ffce4d">&#9888;</span>':'';
+    const winPct=(v.wins!=null && v.runs)?(v.wins/v.runs*100):null;
+    const winCell=winPct!=null?`${winPct.toFixed(0)}%`:'&ndash;';
+    const winTitle=v.avg_finish!=null?`avg finish ${v.avg_finish} · ${v.wins} wins / ${v.top3} top-3`:'';
+    const star=(v.avg===maxAvg && v.avg)?' <span title="Best average of all versions" style="color:var(--ok)">&#9733;</span>':'';
+    return `<tr style="${low?'opacity:.5':''}"><td>${tag}</td>`+
+      `<td style="text-align:center"><span class="tt-sv-badge" style="position:static" title="SV ${v.sv??'?'}">${v.sv??'–'}</span></td>`+
+      `<td style="text-align:center">${v.runs}${warn}</td>`+
+      `<td style="font-weight:700;text-align:right">${fmt(v.avg)}${star}</td><td style="text-align:right">${fmt(v.trimmed_avg)}</td>`+
+      `<td style="text-align:right;color:${cvCol(v.cv)}">${v.cv}%</td>`+
+      `<td style="text-align:right">${fmt(v.best)}</td><td style="text-align:right">${fmt(v.worst)}</td>`+
+      `<td style="text-align:center" title="${winTitle}">${winCell}</td>`+
+      `<td style="text-align:right;${actCol(v.act_pct)?'color:'+actCol(v.act_pct):''};font-weight:700">${v.act_pct}%</td>`+
+      `<td class="muted" style="font-size:11px">${esc(bd)}</td></tr>`;
+  }).join('');
+  const actPct=(a,b)=>{ if(b==null) return ''; const d=a-b; return ` (<b style="color:${d>=0?'var(--ok)':'#ff6e7e'}">${d>=0?'+':''}${d.toFixed(1)}pp</b>)`; };
+  return `<div class="tt-ra2-detail tt-cmp-panel">`+
+    `<div style="font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;font-weight:600">`+
+    `${esc(c.name)} · ${vs.length} versions · avg ${pct(newest.avg,oldest.avg)} (${fmt(newest.avg)} vs ${fmt(oldest.avg)}) `+
+    `· skill activation ${oldest.act_pct}% &rarr; ${newest.act_pct}%${actPct(newest.act_pct,oldest.act_pct)}</div>`+
+    `<table class="tt-planner" style="width:100%"><thead><tr><th>Version</th><th style="text-align:center" title="Spark Value">SV</th>`+
+    `<th style="text-align:center">Runs</th>`+
+    `<th style="text-align:right">Avg</th><th style="text-align:right" title="Trimmed avg">Trim</th>`+
+    `<th style="text-align:right" title="Consistency (lower better)">CV%</th>`+
+    `<th style="text-align:right">Best</th><th style="text-align:right">Worst</th>`+
+    `<th style="text-align:center" title="Win rate — share of races finished 1st">Win%</th>`+
+    `<th style="text-align:right" title="Average skill activation rate">ACT%</th><th>By distance</th></tr></thead>`+
+    `<tbody>${rows}</tbody></table>`+
+    `<div class="muted" style="font-size:10px;margin-top:5px">&#9733; best average &middot; &#9888; under ${LOW} runs (small sample, numbers are noisy)</div></div>`;
+}
+// The per-row cell: a "▾ N versions" dropdown button (with the newest-vs-oldest
+// % swing) for re-trained umas, or a dash for single-version ones.
+function ttCompareCell(u){
+  const c=TT_RETRAINS[u.chara_id];
+  if(!c || !c.versions || c.versions.length<2) return '<span class="muted" style="font-size:11px">—</span>';
+  const vs=c.versions, oldest=vs[0], newest=vs[vs.length-1];
+  const d=oldest.avg ? (newest.avg-oldest.avg)/oldest.avg*100 : 0;
+  const col=d>=0?'var(--ok)':'#ff6e7e', sign=d>=0?'+':'';
+  return `<button class="ghost tt-cmp-btn" data-cid="${u.chara_id}" style="font-size:10px;padding:4px 8px;white-space:nowrap" `+
+    `title="Compare your ${vs.length} versions of ${esc(c.name)}">▾ ${vs.length} ver <b style="color:${col}">${sign}${d.toFixed(0)}%</b></button>`;
+}
 async function ttLoad(){
   await ttLoadPlayer();
   try{
@@ -3541,6 +3610,7 @@ function ttRender(){
     </span>
     <span style="flex:1;min-width:80px;max-width:180px;text-align:center" title="TREND = sparkline of this uma's scores over its recent races, oldest to newest. Shows whether it's trending up or down.">TREND</span>
     <span style="min-width:80px;text-align:center;cursor:pointer" onclick="ttSetSort('avg_score')" title="VERDICT = overall rating (GOAT / STRONG / SOLID / WEAK / BENCH) from average score and consistency. Click to sort.">VERDICT</span>
+    <span style="min-width:104px;text-align:center" title="VERSIONS = if you've trained this character more than once, click to compare the old vs new builds (avg score, runs, stats).">VERSIONS</span>
   </div>`;
 
   html += sorted.map(u=>{
@@ -3570,6 +3640,7 @@ function ttRender(){
       </div>
       <div class="tt-ra2-spark" title="Score trend across ${trials.length} trials">${spark}</div>
       <div class="tt-ra2-verdict"><span class="tt-verdict-pill ${vc}">${v}</span></div>
+      <div class="tt-ra2-compare" style="min-width:104px;text-align:center">${ttCompareCell(u)}</div>
     </div>`;
   }).join('');
 
@@ -3611,6 +3682,25 @@ function ttRender(){
           </div>
         </div>`;
       row.after(detail);
+    };
+  });
+
+  // Bind the "▾ N versions" dropdowns → toggle an inline re-train comparison
+  // panel under the row (independent of the skill-detail expand above).
+  list.querySelectorAll('.tt-cmp-btn').forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const row=btn.closest('.tt-ra2-row');
+      const nxt=row.nextElementSibling;
+      const isOpen=nxt && nxt.classList.contains('tt-cmp-panel');
+      list.querySelectorAll('.tt-ra2-detail').forEach(d=>d.remove());
+      list.querySelectorAll('.tt-ra2-row').forEach(r=>r.style.background='');
+      _expandedTcid=null;
+      if(isOpen) return;
+      row.style.background='var(--panel2)';
+      const div=document.createElement('div');
+      div.innerHTML=_ttComparePanelHTML(+btn.dataset.cid);
+      if(div.firstElementChild) row.after(div.firstElementChild);
     };
   });
 }

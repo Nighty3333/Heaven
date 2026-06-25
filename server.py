@@ -664,6 +664,107 @@ def load_history() -> list[dict]:
     return out
 
 
+def _compute_uma_metrics(e: dict, team_avg: float) -> None:
+    """Fill one uma entry's per-version metrics (avg/trim/cv/best/worst/act/sv…)
+    in place. `team_avg` is the team-wide average used as the Trimmed-AVG
+    threshold. Shared by the kept (newest) versions AND the older re-trained
+    versions, so the re-train comparison shows the exact same numbers as the
+    Race Analysis table."""
+    scores = [t["display_score"] for t in e["trials"]]
+    finishes = [t["finish_order"] for t in e["trials"] if t["finish_order"] is not None]
+    n = len(scores)
+    avg = statistics.mean(scores) if scores else 0
+    if n >= 2:
+        stdev = statistics.stdev(scores)
+        cv = (stdev / avg * 100) if avg else 0
+    else:
+        stdev = 0
+        cv = 0
+    trimmed_avg = avg
+    if n >= 2 and scores and min(scores) < 0.8 * team_avg:
+        trimmed = scores[:]
+        trimmed.remove(min(trimmed))
+        trimmed_avg = statistics.mean(trimmed) if trimmed else avg
+    if n >= 2:
+        sorted_scores = sorted(scores)
+        ceiling = sorted_scores[int(round(0.9 * (n - 1)))]
+        floor = sorted_scores[int(round(0.1 * (n - 1)))]
+    else:
+        ceiling = scores[0] if scores else 0
+        floor = scores[0] if scores else 0
+
+    owned_set = set(e["owned_skills"])
+    activated_counts: dict[int, int] = defaultdict(int)
+    for t in e["trials"]:
+        for sid in t["activated_skills"]:
+            if sid in owned_set:
+                activated_counts[sid] += 1
+    skill_activation_pct = {sid: (cnt / n * 100) for sid, cnt in activated_counts.items()} if n else {}
+    never_activated = sorted(owned_set - set(activated_counts.keys()))
+    always_activated = [sid for sid, pct in skill_activation_pct.items() if pct >= 99.0]
+
+    total_owned = len(e["owned_skills"])
+    avg_activated_per_race = statistics.mean(
+        [len(set(t["activated_skills"]) & owned_set) for t in e["trials"]]
+    ) if e["trials"] else 0
+    overall_act_pct = (avg_activated_per_race / total_owned * 100) if total_owned else 0
+
+    e.update({
+        "n_appearances":       n,
+        "avg_score":           round(avg),
+        "trimmed_avg":         round(trimmed_avg),
+        "stdev":               round(stdev),
+        "cv":                  round(cv, 1),
+        "ceiling":             round(ceiling),
+        "floor":               round(floor),
+        "ceiling_floor_diff":  round(ceiling - floor),
+        "avg_finish":          round(statistics.mean(finishes) + 1, 2) if finishes else None,
+        "wins":                sum(1 for f in finishes if f == 0),
+        "top3":                sum(1 for f in finishes if f <= 2),
+        "owned_total":         total_owned,
+        "avg_activated":       round(avg_activated_per_race, 1),
+        "overall_act_pct":     round(overall_act_pct, 1),
+        "skill_activation":    {
+            str(sid): {
+                "name":  master.skill_name(sid),
+                "pct":   round(skill_activation_pct.get(sid, 0), 1),
+                "count": activated_counts.get(sid, 0),
+            }
+            for sid in sorted(owned_set, key=lambda s: -skill_activation_pct.get(s, 0))
+        },
+        "never_activated_n":   len(never_activated),
+        "always_activated_n":  len(always_activated),
+        "sv":                  master.compute_uma_sv(owned_set),
+    })
+
+
+def _version_summary(e: dict) -> dict:
+    """Slim per-version dict for the re-train comparison dropdown (mirrors the
+    Race Analysis columns: SV, build, runs, avg, trim, CV, best, worst, ACT)."""
+    dist: dict = defaultdict(list)
+    for t in e["trials"]:
+        dist[t.get("distance_type")].append(t["display_score"])
+    return {
+        "trained_chara_id": e["trained_chara_id"],
+        "rank":             e.get("rank"),
+        "stats":            e.get("stats") or {},
+        "sv":               e.get("sv"),
+        "runs":             e.get("n_appearances", len(e["trials"])),
+        "avg":              e.get("avg_score"),
+        "trimmed_avg":      e.get("trimmed_avg"),
+        "cv":               e.get("cv"),
+        "act_pct":          e.get("overall_act_pct"),
+        "best":             e.get("ceiling"),
+        "worst":            e.get("floor"),
+        "wins":             e.get("wins"),
+        "top3":             e.get("top3"),
+        "avg_finish":       e.get("avg_finish"),
+        "by_distance":      {_TT_DIST_LABEL.get(k, str(k)):
+                             {"avg": round(sum(x) / len(x)), "runs": len(x)}
+                             for k, x in dist.items() if x},
+    }
+
+
 def aggregate(rows: list[dict]) -> dict:
     """Compute per-uma stats across all trials.
     Returns {trained_chara_id: {...metrics...}}"""
@@ -689,6 +790,7 @@ def aggregate(rows: list[dict]) -> dict:
             "chara_id":         row.get("chara_id"),
             "chara_name":       row.get("chara_name") or master.chara_name_by_card_id(row.get("chara_id") or 0),
             "stats":            row.get("stats") or {},
+            "rank":             row.get("rank"),
             "owned_skills":     list(row.get("owned_skills") or []),
             "trials":           [],
         })
@@ -715,6 +817,8 @@ def aggregate(rows: list[dict]) -> dict:
         # Use the latest stats observed
         if row.get("stats"):
             entry["stats"] = row.get("stats")
+        if row.get("rank") is not None:
+            entry["rank"] = row.get("rank")
 
     # ── Collapse re-trained versions ─────────────────────────────────
     # When you re-train an uma, the game assigns a NEW trained_chara_id even
@@ -741,6 +845,7 @@ def aggregate(rows: list[dict]) -> dict:
     # Annotate the surviving version with how many older re-trains were hidden
     for tcid, e in kept.items():
         e["superseded_versions"] = superseded_by_chara.get(e.get("chara_id"), 0)
+    all_versions = dict(by_uma)   # keep every version for the re-train comparison
     by_uma = kept
 
     # Team total average across every uma's every race — the threshold the
@@ -750,78 +855,21 @@ def aggregate(rows: list[dict]) -> dict:
 
     # Per-uma metrics  (uses display_score = ingame-matching number)
     for tcid, e in by_uma.items():
-        scores = [t["display_score"] for t in e["trials"]]
-        finishes = [t["finish_order"] for t in e["trials"] if t["finish_order"] is not None]
-        n = len(scores)
-        avg = statistics.mean(scores) if scores else 0
-        if n >= 2:
-            stdev = statistics.stdev(scores)
-            cv = (stdev / avg * 100) if avg else 0
-        else:
-            stdev = 0
-            cv = 0
-        # Trimmed AVG (matches the source sheet): drop the single lowest score
-        # only if it's below 80% of the TEAM total average, so one bad race
-        # doesn't tank the uma's average.
-        trimmed_avg = avg
-        if n >= 2 and scores and min(scores) < 0.8 * team_avg:
-            trimmed = scores[:]
-            trimmed.remove(min(trimmed))
-            trimmed_avg = statistics.mean(trimmed) if trimmed else avg
-        # Ceiling 90th / Floor 10th percentile
-        if n >= 2:
-            sorted_scores = sorted(scores)
-            ceiling = sorted_scores[int(round(0.9 * (n - 1)))]
-            floor = sorted_scores[int(round(0.1 * (n - 1)))]
-        else:
-            ceiling = scores[0] if scores else 0
-            floor = scores[0] if scores else 0
+        _compute_uma_metrics(e, team_avg)
 
-        # Skill activation aggregation
-        owned_set = set(e["owned_skills"])
-        activated_counts: dict[int, int] = defaultdict(int)
-        for t in e["trials"]:
-            for sid in t["activated_skills"]:
-                if sid in owned_set:
-                    activated_counts[sid] += 1
-        skill_activation_pct = {sid: (cnt / n * 100) for sid, cnt in activated_counts.items()}
-        never_activated = sorted(owned_set - set(activated_counts.keys()))
-        always_activated = [sid for sid, pct in skill_activation_pct.items() if pct >= 99.0]
-
-        # Overall activation ratio: avg skills activated per race / total owned
-        total_owned = len(e["owned_skills"])
-        avg_activated_per_race = statistics.mean(
-            [len(set(t["activated_skills"]) & owned_set) for t in e["trials"]]
-        ) if e["trials"] else 0
-        overall_act_pct = (avg_activated_per_race / total_owned * 100) if total_owned else 0
-
-        e.update({
-            "n_appearances":       n,
-            "avg_score":           round(avg),
-            "trimmed_avg":         round(trimmed_avg),
-            "stdev":               round(stdev),
-            "cv":                  round(cv, 1),
-            "ceiling":             round(ceiling),
-            "floor":               round(floor),
-            "ceiling_floor_diff":  round(ceiling - floor),
-            "avg_finish":          round(statistics.mean(finishes) + 1, 2) if finishes else None,
-            "wins":                sum(1 for f in finishes if f == 0),
-            "top3":                sum(1 for f in finishes if f <= 2),
-            "owned_total":         total_owned,
-            "avg_activated":       round(avg_activated_per_race, 1),
-            "overall_act_pct":     round(overall_act_pct, 1),
-            "skill_activation":    {
-                str(sid): {
-                    "name":  master.skill_name(sid),
-                    "pct":   round(skill_activation_pct.get(sid, 0), 1),
-                    "count": activated_counts.get(sid, 0),
-                }
-                for sid in sorted(owned_set, key=lambda s: -skill_activation_pct.get(s, 0))
-            },
-            "never_activated_n":   len(never_activated),
-            "always_activated_n":  len(always_activated),
-            "sv":                  master.compute_uma_sv(owned_set),
-        })
+    # Same metrics for the OLDER (superseded) re-trains, then attach a `versions`
+    # list (every version of a character, oldest→newest) to each kept uma so the
+    # re-train comparison can show old vs new with identical numbers.
+    older = {tcid: e for tcid, e in all_versions.items() if tcid not in by_uma}
+    for e in older.values():
+        _compute_uma_metrics(e, team_avg)
+    by_chara: dict = defaultdict(list)
+    for e in all_versions.values():
+        by_chara[e.get("chara_id")].append(e)
+    for e in by_uma.values():
+        sibs = by_chara.get(e.get("chara_id"), [])
+        if len(sibs) > 1:
+            e["versions"] = [_version_summary(s) for s in sorted(sibs, key=_last_idx)]
 
     # Compute Gap to Top (avg score)
     if by_uma:
@@ -1793,6 +1841,35 @@ def _team_data():
         rows = load_history()
         _TEAM_CACHE.update(mtime=mt, rows=rows, agg=aggregate(rows))
     return _TEAM_CACHE["rows"], _TEAM_CACHE["agg"]
+
+
+_TT_DIST_LABEL = {1: "Sprint", 2: "Mile", 3: "Medium", 4: "Long", 5: "Dirt"}
+
+
+@app.get("/api/team/retrains")
+def api_team_retrains():
+    """Re-train comparison: for every character you've trained more than once,
+    each version's build (rank + stats), SV, runs, avg/trim/CV/best/worst/ACT
+    and a per-distance breakdown — so old vs new versions can be compared head to
+    head with the SAME numbers as the Race Analysis table (which collapses to the
+    newest and hides the older ones). Your own umas only."""
+    _, agg = _team_data()
+    out = []
+    for e in agg.values():
+        vers = e.get("versions")
+        if not vers or len(vers) < 2:
+            continue
+        for i, v in enumerate(vers):
+            v["newest"] = (i == len(vers) - 1)
+        out.append({
+            "card_id": e.get("chara_id"),
+            "name": e.get("chara_name"),
+            "versions": vers,
+        })
+    # biggest avg swing (newest vs oldest) first — most interesting comparisons up top
+    out.sort(key=lambda c: abs((c["versions"][-1]["avg"] or 0) - (c["versions"][0]["avg"] or 0)),
+             reverse=True)
+    return {"characters": out}
 
 
 @app.get("/api/team")
