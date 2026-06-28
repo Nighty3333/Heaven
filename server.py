@@ -765,9 +765,19 @@ def _version_summary(e: dict) -> dict:
     }
 
 
+def _is_scored(r: dict) -> bool:
+    """A Team Trials row that actually carries a race score. Skill-only rows
+    (e.g. a skill-track export with contains_scores:false) have neither
+    display_score nor raw_score and must NOT count toward the Race Analysis —
+    they'd show up as bogus 0-score umas/trials. They still feed Skill Lookup
+    via combined_rows()."""
+    return bool(r.get("display_score") or r.get("raw_score"))
+
+
 def aggregate(rows: list[dict]) -> dict:
     """Compute per-uma stats across all trials.
     Returns {trained_chara_id: {...metrics...}}"""
+    rows = [r for r in rows if _is_scored(r)]   # keep skill-only rows out of scores
     by_uma: dict[int, dict] = {}
 
     # Group by the real trial_id (rows carry it now). Each distinct trial gets a
@@ -1887,6 +1897,7 @@ def api_team_sig():
 @app.get("/api/team")
 def api_team():
     rows, agg = _team_data()
+    rows = [r for r in rows if _is_scored(r)]   # counts reflect scored rows only
     # Sort by avg_score desc
     sorted_umas = sorted(agg.values(), key=lambda x: -x["avg_score"])
 
