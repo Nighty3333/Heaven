@@ -2312,27 +2312,48 @@ async def api_db_import(files: list[UploadFile] = File(...)):
     auto-detected and routed:
       * a Heaven export bundle (has `tt` / `stadium` keys), or
       * a raw horseACT / TeamStadiumResult Team Trials dump (ayaliz/horseACT,
-        Hakuraku, or Heaven's own `heaven-races/Team trials/TT-*.json`).
+        Hakuraku, or Heaven's own `heaven-races/Team trials/TT-*.json`), or
+      * a raw `.jsonl` data file straight from UmaTTAnalyzer
+        (`team_trials_history.jsonl` / `stadium_observations.jsonl`) — so people
+        migrating don't need to touch UmaTTAnalyzer at all.
     Dedups so nothing is lost or duplicated; returns per-format counts + any
-    per-file errors. Accepts the whole drop of horseACT files in one go."""
+    per-file errors. Accepts the whole drop of files in one go."""
     import horseact_import
 
     if not files:
         return JSONResponse({"error": "no files uploaded"}, status_code=400)
 
-    # Parse every upload first; only bail if NONE are readable.
-    parsed: list[tuple[str, dict]] = []
+    # Parse every upload first; only bail if NONE are readable. A file is either
+    # a single JSON document (bundle / horseACT) or a raw .jsonl (one object per
+    # line) — try JSON first, fall back to line-by-line.
+    parsed: list[tuple[str, object]] = []
     errors: list[str] = []
     for f in files:
+        name = f.filename or "upload"
         try:
             raw = await f.read()
-            doc = json.loads(raw.decode("utf-8", errors="replace"))
         except Exception as e:
-            errors.append(f"{f.filename}: could not read ({e})")
+            errors.append(f"{name}: could not read ({e})")
             continue
-        parsed.append((f.filename or "upload", doc))
+        text = raw.decode("utf-8", errors="replace")
+        try:
+            parsed.append((name, json.loads(text)))          # single JSON doc / bundle
+        except Exception:
+            rows = []                                        # maybe a raw .jsonl
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except Exception:
+                    pass
+            if rows:
+                parsed.append((name, rows))                  # list => raw jsonl rows
+            else:
+                errors.append(f"{name}: not valid JSON or JSONL")
     if not parsed:
-        return JSONResponse({"error": "no readable JSON files", "errors": errors}, status_code=400)
+        return JSONResponse({"error": "no readable JSON/JSONL files", "errors": errors}, status_code=400)
 
     # Safety net: snapshot current data before merging (rolling single backup).
     _backup_db()
@@ -2342,7 +2363,7 @@ async def api_db_import(files: list[UploadFile] = File(...)):
     seen = {_tt_key(r) for r in _read_jsonl_list(skill_planner.HISTORY_PATH)}
     st_seen = stadium_tracker._load_seen_keys()
     tt_added = tt_dupes = st_added = st_dupes = 0
-    bundles = horseact_files = unknown = 0
+    bundles = horseact_files = jsonl_files = unknown = 0
     _tt_new: list[dict] = []
     _st_new: list[dict] = []
     horseact_stadium: list[dict] = []
@@ -2374,7 +2395,21 @@ async def api_db_import(files: list[UploadFile] = File(...)):
             st_added += 1
 
     for name, doc in parsed:
-        if isinstance(doc, dict) and ("tt" in doc or "stadium" in doc):
+        if isinstance(doc, list):
+            # Raw .jsonl rows straight from UmaTTAnalyzer: classify by shape —
+            # TT history rows carry trial_id+trained_chara_id, stadium rows a
+            # packet_key. One file may even hold a mix; both are routed.
+            tt_rows = [r for r in doc if isinstance(r, dict)
+                       and r.get("trial_id") and r.get("trained_chara_id")]
+            st_rows = [r for r in doc if isinstance(r, dict) and r.get("packet_key")]
+            if tt_rows or st_rows:
+                jsonl_files += 1
+                _merge_tt(tt_rows)
+                _merge_stadium(st_rows)
+            else:
+                unknown += 1
+                errors.append(f"{name}: .jsonl with no Team Trials / stadium rows")
+        elif isinstance(doc, dict) and ("tt" in doc or "stadium" in doc):
             bundles += 1
             _merge_tt(doc.get("tt") or [])
             _merge_stadium(doc.get("stadium") or [])
@@ -2387,7 +2422,7 @@ async def api_db_import(files: list[UploadFile] = File(...)):
                 errors.append(f"{name}: horseACT parse failed ({e})")
         else:
             unknown += 1
-            errors.append(f"{name}: not a Heaven export or horseACT TT dump")
+            errors.append(f"{name}: not a Heaven export, horseACT dump, or raw .jsonl")
 
     jsonl_util.append_jsonl(skill_planner.HISTORY_PATH, _tt_new)
     jsonl_util.append_jsonl(stadium_tracker.OBSERVATIONS_PATH, _st_new)
@@ -2406,7 +2441,7 @@ async def api_db_import(files: list[UploadFile] = File(...)):
         "tt_added": tt_added, "tt_dupes": tt_dupes,
         "stadium_added": st_added, "stadium_dupes": st_dupes,
         "files": len(parsed), "bundles": bundles,
-        "horseact": horseact_files, "unknown": unknown,
+        "horseact": horseact_files, "jsonl": jsonl_files, "unknown": unknown,
         "errors": errors,
     }
 
