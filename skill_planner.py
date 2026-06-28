@@ -461,8 +461,16 @@ def all_skill_names(rows: list[dict] | None = None) -> list[dict]:
     for r in rows:
         for sid in (r.get("owned_skills") or []):
             seen.add(sid)
-    out = [{"id": sid, "name": names.get(sid, f"skill#{sid}")} for sid in seen]
-    out.sort(key=lambda x: x["name"])
+    # Dedupe by display name: a skill's base id (1xxxxx) and its inherited
+    # variant id (9xxxxx) share the exact same name and are the SAME skill to
+    # the player (the lookup merges them anyway), so the autocomplete must list
+    # each name only once. Keep the lowest id (the base) per name.
+    by_name: dict[str, dict] = {}
+    for sid in seen:
+        nm = names.get(sid, f"skill#{sid}")
+        if nm not in by_name or sid < by_name[nm]["id"]:
+            by_name[nm] = {"id": sid, "name": nm}
+    out = sorted(by_name.values(), key=lambda x: x["name"])
     return out
 
 
