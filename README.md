@@ -80,6 +80,12 @@ activations and win/loss verdicts.
   WORST, ACT% (skill activation), a sparkline trend, and a verdict pill
   (GOAT / STRONG / SOLID / WEAK / BENCH). Click to expand a score heatmap, gap to
   top, stddev and full skill breakdown.
+- **Re-train Comparison** — trained the same character more than once? Any uma with
+  multiple versions gets a dropdown comparing them side by side (average, trimmed
+  average, consistency, best/worst, win rate, skill activation and a per-distance
+  breakdown) so you can see whether a re-train actually improved — older versions
+  are kept for comparison instead of being hidden.
+- The page **refreshes on its own** as new matches come in — no manual reload.
 
 ### Skill Planner
 For a given (character, distance, running style), shows **how often each skill
@@ -87,8 +93,16 @@ actually fires** in your captured matches — so you pick skills that consistent
 activate instead of ones that look good on paper but never trigger.
 
 ### Skill Lookup
-Search any skill by name/effect: description, activation conditions, and which
-characters learn it.
+Type any skill name and see **how often it actually activates** across all your
+data — your Team Trials plus every race you've run (career, champions, room
+matches). Filter the activation rate by **distance** and **running style**, with a
+per-uma breakdown of who runs it and how reliably it fires.
+- **Community pool** — the dashboard ships with a shared activation dataset and
+  merges in any skill data you (or others) import, so the numbers get more
+  reliable over time. Everything is **deduplicated** — the same race never counts
+  twice.
+- **Export / Import / Sync** — share your skill data or pull in someone else's;
+  imports only ever *add* to your pool, never replace it.
 
 ### Track & Condition
 Stadium conditions across your captured matches: top tracks, starting-gate
@@ -179,6 +193,39 @@ fails, save it to `data/udid.txt` (one line, 32 hex chars).
 | `udid` not auto-detected | Save it to `data/udid.txt` (32 hex chars) |
 
 **Quick proxy test:** `mitmdump -s discover_addon.py --listen-port 8080 --set block_global=false`, then open the game — you should see `team_stadium/start`, `team_stadium/all_race_end` scrolling.
+
+---
+
+## Backups & importing data
+
+Every import is **additive and deduplicated** — it only ever *adds* new data and
+never overwrites or deletes what you already have, and it always takes a backup
+first.
+
+### Import & merge (Team Trials tab)
+Pulls extra data into your dashboard. It auto-detects and accepts:
+- a **Heaven export** bundle (from the *Export data* button),
+- raw **horseACT / Team Trials** dumps,
+- raw **UmaTTAnalyzer** data files (`team_trials_history.jsonl`,
+  `stadium_observations.jsonl`).
+
+You can select several files at once. Everything is deduplicated, so re-importing
+the same data never doubles anything.
+
+### Migrating from UmaTTAnalyzer
+Moving over from UmaTTAnalyzer keeps **all** your history. Just take the files in
+its `data/` folder (`team_trials_history.jsonl` and `stadium_observations.jsonl`)
+and load them with **Import & merge** — your Team Trials, Track & Condition and
+skill activation all come across in one step. Skill-only files can also go into
+**Skill Lookup → Import data**, where they enrich your activation numbers without
+touching your scores. Importing only *reads* those files; your original
+UmaTTAnalyzer data is never modified.
+
+### Backups
+The **Backups** menu (top-left of the header) keeps dated restore points. A backup
+is taken automatically before every import, and you can also make one any time
+with **Backup now**. Pick any snapshot to roll back to it in one click — and since
+your current data is snapshotted first, even a restore is undoable.
 
 ---
 
